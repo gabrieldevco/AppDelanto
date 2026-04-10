@@ -38,6 +38,9 @@ dependencies:
   # Google Fonts - Fuente Inter
   google_fonts: ^6.2.1
 
+  # Shared Preferences - Almacenamiento local
+  shared_preferences: ^2.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

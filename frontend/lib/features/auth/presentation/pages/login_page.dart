@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import '../../../employee/presentation/pages/employee_main_page.dart';
 import '../../../employer/presentation/pages/employer_main_page.dart';
+import '../../../admin/presentation/pages/admin_main_page.dart';
 import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -37,7 +38,10 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (_) => const EmployerMainPage()),
       );
     } else if (email == 'admin@appdelanta.com' && password == 'admin123') {
-      // TODO: Navigate to admin page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminMainPage()),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
