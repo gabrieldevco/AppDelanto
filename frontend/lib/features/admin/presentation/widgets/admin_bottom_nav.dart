@@ -66,28 +66,24 @@ class AdminBottomNav extends StatelessWidget {
               onTap: () {
                 if (!isSelected) {
                   if (index == 0) {
-                    Navigator.pushAndRemoveUntil(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const AdminMainPage()),
-                      (route) => false,
                     );
                   } else if (index == 1) {
-                    Navigator.pushAndRemoveUntil(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const AdminDisbursementsPage()),
-                      (route) => false,
                     );
                   } else if (index == 2) {
-                    Navigator.pushAndRemoveUntil(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const AdminReportsPage()),
-                      (route) => false,
                     );
                   } else if (index == 3) {
-                    Navigator.pushAndRemoveUntil(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const AdminSettingsPage()),
-                      (route) => false,
                     );
                   }
                 }

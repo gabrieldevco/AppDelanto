@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../pages/admin_help_page.dart';
+import '../pages/admin_profile_page.dart';
 import 'admin_notifications_drawer.dart';
 
 class AdminHeader extends StatefulWidget {
@@ -18,120 +20,128 @@ class _AdminHeaderState extends State<AdminHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2563EB),
-            borderRadius: BorderRadius.circular(12),
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.attach_money,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
-          child: const Icon(
-            Icons.attach_money,
-            color: Colors.white,
-            size: 24,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'AppDelanta',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const Text(
+                  'Administrador',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Stack(
             children: [
-              const Text(
-                'AppDelanta',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const Text(
-                'Administrador',
-                style: TextStyle(
-                  fontSize: 13,
+              IconButton(
+                onPressed: () {
+                  Scaffold.of(context).openEndDrawer();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      if (mounted) _refresh();
+                    });
+                  });
+                },
+                icon: const Icon(
+                  Icons.notifications_outlined,
                   color: Color(0xFF6B7280),
+                  size: 24,
                 ),
               ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _unreadCount > 9 ? '9+' : '$_unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
             ],
           ),
-        ),
-        Stack(
-          children: [
-            IconButton(
-              onPressed: () {
-                Scaffold.of(context).openEndDrawer();
-                // Refrescar el contador cuando el drawer se cierre
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    if (mounted) _refresh();
-                  });
-                });
-              },
-              icon: const Icon(
-                Icons.notifications_outlined,
-                color: Color(0xFF6B7280),
-                size: 24,
-              ),
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminHelpPage()),
+              );
+            },
+            icon: const Icon(
+              Icons.help_outline,
+              color: Color(0xFF6B7280),
+              size: 24,
             ),
-            if (_unreadCount > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDC2626),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 16,
-                    minHeight: 16,
-                  ),
-                  child: Text(
-                    _unreadCount > 9 ? '9+' : '$_unreadCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        IconButton(
-          onPressed: () {
-            // TODO: Navigate to help page
-          },
-          icon: const Icon(
-            Icons.help_outline,
-            color: Color(0xFF6B7280),
-            size: 24,
           ),
-        ),
-        IconButton(
-          onPressed: () {
-            // TODO: Navigate to profile page
-          },
-          icon: const Icon(
-            Icons.person_outline,
-            color: Color(0xFF6B7280),
-            size: 24,
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminProfilePage()),
+              );
+            },
+            icon: const Icon(
+              Icons.person_outline,
+              color: Color(0xFF6B7280),
+              size: 24,
+            ),
           ),
-        ),
-        IconButton(
-          onPressed: () {
-            _showLogoutConfirmation(context);
-          },
-          icon: const Icon(
-            Icons.logout,
-            color: Color(0xFFDC2626),
-            size: 24,
+          IconButton(
+            onPressed: () {
+              _showLogoutConfirmation(context);
+            },
+            icon: const Icon(
+              Icons.logout,
+              color: Color(0xFFDC2626),
+              size: 24,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -143,7 +153,6 @@ class _AdminHeaderState extends State<AdminHeader> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icono circular
             Container(
               width: 56,
               height: 56,
@@ -158,7 +167,6 @@ class _AdminHeaderState extends State<AdminHeader> {
               ),
             ),
             const SizedBox(height: 16),
-            // Título
             const Text(
               'Cerrar Sesión',
               style: TextStyle(
@@ -168,7 +176,6 @@ class _AdminHeaderState extends State<AdminHeader> {
               ),
             ),
             const SizedBox(height: 8),
-            // Subtítulo
             const Text(
               '¿Estás seguro?',
               style: TextStyle(
