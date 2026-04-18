@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../employee/presentation/pages/employee_main_page.dart';
 import '../../../employer/presentation/pages/employer_main_page.dart';
 import '../../../admin/presentation/pages/admin_main_page.dart';
+import '../providers/auth_provider.dart';
 import 'forgot_password_page.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,45 +26,54 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _login() {
-    final email = _emailController.text;
+  Future<void> _login() async {
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (email == 'juan.perez@empresa.com' && password == '123456') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const EmployeeMainPage()),
-      );
-    } else if (email == 'empresa@abc.com' && password == '123456') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const EmployerMainPage()),
-      );
-    } else if (email == 'admin@appdelanta.com' && password == 'admin123') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminMainPage()),
-      );
-    } else {
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Credenciales incorrectas'),
+          content: Text('Por favor ingresa email y contraseña'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.login(
+      username: email,
+      password: password,
+    );
+
+    if (success && mounted) {
+      final user = authProvider.user;
+      if (user == null) return;
+
+      // Navegar según el rol del usuario
+      if (user.isEmployee) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EmployeeMainPage()),
+        );
+      } else if (user.isEmployer) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EmployerMainPage()),
+        );
+      } else if (user.isAdmin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminMainPage()),
+        );
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Credenciales incorrectas'),
           backgroundColor: Colors.red,
         ),
       );
-    }
-  }
-
-  void _quickAccess(String role) {
-    if (role == 'empleado') {
-      _emailController.text = 'juan.perez@empresa.com';
-      _passwordController.text = '123456';
-    } else if (role == 'empleador') {
-      _emailController.text = 'empresa@abc.com';
-      _passwordController.text = '123456';
-    } else if (role == 'administrador') {
-      _emailController.text = 'admin@appdelanta.com';
-      _passwordController.text = 'admin123';
     }
   }
 
@@ -276,7 +288,10 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          // TODO: Implementar registro
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const RegisterPage()),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF059669),
@@ -296,57 +311,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    // Divider con texto
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: const Color(0xFFE5E7EB),
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'Acceso rápido demo',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: const Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: const Color(0xFFE5E7EB),
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Botones de acceso rápido
-                    _buildQuickAccessButton(
-                      icon: Icons.person_outline,
-                      iconColor: const Color(0xFF2563EB),
-                      label: 'Empleado',
-                      onTap: () => _quickAccess('empleado'),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildQuickAccessButton(
-                      icon: Icons.business_center_outlined,
-                      iconColor: const Color(0xFF059669),
-                      label: 'Empleador',
-                      onTap: () => _quickAccess('empleador'),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildQuickAccessButton(
-                      icon: Icons.admin_panel_settings_outlined,
-                      iconColor: const Color(0xFF7C3AED),
-                      label: 'Administrador',
-                      onTap: () => _quickAccess('administrador'),
-                    ),
                   ],
                 ),
               ),
@@ -358,37 +322,4 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildQuickAccessButton({
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: iconColor),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF111827),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

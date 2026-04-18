@@ -41,6 +41,22 @@ dependencies:
   # Shared Preferences - Almacenamiento local
   shared_preferences: ^2.2.2
 
+  # HTTP Client para API REST
+  dio: ^5.4.0
+
+  # Para manejo de JSON
+  json_annotation: ^4.8.1
+
+  # State Management
+  provider: ^6.1.1
+
+  # File Picker para seleccionar archivos
+  file_picker: ^8.0.0+1
+  http_parser: ^4.0.2
+
+  # Para abrir URLs y archivos
+  url_launcher: ^6.2.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

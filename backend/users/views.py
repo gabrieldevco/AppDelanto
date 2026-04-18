@@ -3,11 +3,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.db import models
 
 from .models import User, EmployeeProfile, AdminProfile
 from .serializers import (
     UserSerializer, UserRegistrationSerializer, 
-    EmployeeProfileSerializer, AdminProfileSerializer, LoginSerializer
+    EmployeeProfileSerializer, AdminProfileSerializer, LoginSerializer,
+    UserWithProfileSerializer
 )
 
 
@@ -56,13 +59,16 @@ class AdminProfileViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
-    """Registrar nuevo usuario"""
-    serializer = UserRegistrationSerializer(data=request.data)
+    """Registrar nuevo usuario con soporte para archivos"""
+    # Manejar datos multipart (con archivos) o JSON
+    data = request.data
+    
+    serializer = UserRegistrationSerializer(data=data)
     if serializer.is_valid():
         user = serializer.save()
         token, _ = Token.objects.get_or_create(user=user)
         return Response({
-            'user': UserSerializer(user).data,
+            'user': UserWithProfileSerializer(user, context={'request': request}).data,
             'token': token.key
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -96,12 +102,52 @@ def logout(request):
 def me(request):
     """Obtener información del usuario actual"""
     user = request.user
-    data = UserSerializer(user).data
+    return Response(UserWithProfileSerializer(user, context={'request': request}).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_management(request):
+    """Vista de gestión de usuarios para administradores"""
+    if not request.user.is_admin:
+        return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
     
-    # Agregar información adicional según el rol
-    if user.is_employee and hasattr(user, 'employee_profile'):
-        data['profile'] = EmployeeProfileSerializer(user.employee_profile).data
-    elif user.is_admin and hasattr(user, 'admin_profile'):
-        data['profile'] = AdminProfileSerializer(user.admin_profile).data
+    # Obtener todos los usuarios con sus perfiles
+    users = User.objects.all().select_related(
+        'employee_profile', 'admin_profile', 'company'
+    )
     
-    return Response(data)
+    role_filter = request.query_params.get('role', None)
+    if role_filter:
+        users = users.filter(role=role_filter)
+    
+    search = request.query_params.get('search', None)
+    if search:
+        users = users.filter(
+            models.Q(username__icontains=search) |
+            models.Q(email__icontains=search) |
+            models.Q(first_name__icontains=search) |
+            models.Q(last_name__icontains=search)
+        )
+    
+    serializer = UserWithProfileSerializer(users, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def verify_company(request, company_id):
+    """Verificar empresa (cambiar is_verified a True)"""
+    if not request.user.is_admin:
+        return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
+    
+    from companies.models import Company
+    from companies.serializers import CompanyDetailAdminSerializer
+    
+    try:
+        company = Company.objects.get(id=company_id)
+        company.is_verified = True
+        company.save()
+        return Response(CompanyDetailAdminSerializer(company, context={'request': request}).data)
+    except Company.DoesNotExist:
+        return Response({'error': 'Empresa no encontrada'}, status=status.HTTP_404_NOT_FOUND)

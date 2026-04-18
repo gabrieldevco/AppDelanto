@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-8oi%ybylzsmlpyd7vo5#+&yl0ief=43k0wei%)s%i=#8l2@4jc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '0.0.0.0', '10.0.2.2']
 
 
 # Application definition
@@ -61,6 +61,27 @@ MIDDLEWARE = [
 
 # CORS - Permitir conexión desde Flutter
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000', 'http://0.0.0.0:8000']
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -144,6 +165,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Media files (uploads)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Modelo de usuario personalizado
 AUTH_USER_MODEL = 'users.User'

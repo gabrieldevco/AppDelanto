@@ -41,6 +41,27 @@ class Company(models.Model):
         verbose_name='Administrador'
     )
     
+    # Cámara de comercio (PDF)
+    chamber_of_commerce_document = models.FileField(
+        upload_to='chamber_of_commerce/',
+        blank=True,
+        null=True,
+        verbose_name='Cámara de Comercio (PDF)',
+        help_text='Documento PDF de cámara de comercio'
+    )
+    
+    # Datos bancarios del empleador
+    bank_account = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Cuenta bancaria'
+    )
+    bank_name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Banco'
+    )
+    
     # Configuración de adelantos
     max_advance_percentage = models.DecimalField(
         max_digits=5,
