@@ -12,10 +12,13 @@ class AdvanceService {
     required double amount,
     required String reason,
   }) async {
+    // Redondear a 2 decimales y convertir a string para evitar precisión excesiva
+    final formattedAmount = double.parse(amount.toStringAsFixed(2));
+    
     final response = await _apiService.post(
       ApiConstants.advances,
       data: {
-        'amount': amount,
+        'amount': formattedAmount,
         'reason': reason,
       },
     );

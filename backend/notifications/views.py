@@ -117,12 +117,14 @@ def mark_notification_read(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_all_read(request):
-    """Marcar todas las notificaciones del usuario como leídas"""
-    notifications = Notification.objects.filter(user=request.user, is_read=False)
-    count = notifications.count()
-    notifications.update(is_read=True, read_at=timezone.now())
-    
-    return Response({
-        'message': f'{count} notificaciones marcadas como leídas',
-        'marked_count': count
-    })
+    """Marcar todas las notificaciones como leídas"""
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return Response({'message': 'Todas las notificaciones marcadas como leídas'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def unread_count(request):
+    """Obtener conteo de notificaciones no leídas"""
+    count = Notification.objects.filter(user=request.user, is_read=False).count()
+    return Response({'unread_count': count})

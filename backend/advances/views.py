@@ -11,6 +11,7 @@ from .serializers import (
     AdvanceSerializer, AdvanceCreateSerializer, 
     AdvanceStatusUpdateSerializer, AdvanceListSerializer
 )
+from notifications.models import Notification
 
 
 class AdvanceViewSet(viewsets.ModelViewSet):
@@ -56,6 +57,16 @@ class AdvanceViewSet(viewsets.ModelViewSet):
             changed_by=user,
             notes='Solicitud creada'
         )
+        
+        # NOTIFICACIÓN: Notificar al empleador (admin de la empresa)
+        if employee.company and employee.company.admin:
+            Notification.objects.create(
+                user=employee.company.admin,
+                type='info',
+                title='Nueva solicitud de adelanto',
+                message=f'{user.get_full_name() or user.username} ha solicitado un adelanto de ${advance.amount:,.0f}',
+                related_advance=advance
+            )
     
     def perform_update(self, serializer):
         user = self.request.user
@@ -97,6 +108,32 @@ class AdvanceViewSet(viewsets.ModelViewSet):
             changed_by=user,
             notes=notes
         )
+        
+        # NOTIFICACIÓN: Notificar al empleado del cambio de estado
+        if new_status == 'approved':
+            Notification.objects.create(
+                user=advance.employee.user,
+                type='success',
+                title='Adelanto aprobado',
+                message=f'Tu solicitud de adelanto de ${advance.amount:,.0f} ha sido aprobada por {user.get_full_name() or user.username}',
+                related_advance=advance
+            )
+        elif new_status == 'rejected':
+            Notification.objects.create(
+                user=advance.employee.user,
+                type='warning',
+                title='Adelanto rechazado',
+                message=f'Tu solicitud de adelanto de ${advance.amount:,.0f} ha sido rechazada. Motivo: {notes or "Sin especificar"}',
+                related_advance=advance
+            )
+        elif new_status == 'disbursed':
+            Notification.objects.create(
+                user=advance.employee.user,
+                type='success',
+                title='Desembolso realizado',
+                message=f'El dinero de tu adelanto de ${advance.amount:,.0f} ha sido transferido a tu cuenta bancaria',
+                related_advance=advance
+            )
         
         # Actualizar límite disponible del empleado si se desembolsa o recupera
         if new_status == 'disbursed':
@@ -163,6 +200,15 @@ def approve_advance(request, pk):
         notes=request.data.get('notes', 'Adelanto aprobado')
     )
     
+    # NOTIFICACIÓN: Notificar al empleado que su adelanto fue aprobado
+    Notification.objects.create(
+        user=advance.employee.user,
+        type='success',
+        title='Adelanto aprobado',
+        message=f'Tu solicitud de adelanto de ${advance.amount:,.0f} ha sido aprobada por {user.get_full_name() or user.username}',
+        related_advance=advance
+    )
+    
     return Response(AdvanceSerializer(advance).data)
 
 
@@ -180,7 +226,7 @@ def reject_advance(request, pk):
         return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
     
     if advance.status != 'pending':
-        return Response({'error': 'Solo se pueden rechazar adelantos pendientes'}, 
+        return Response({'error': 'Solo se pueden rechazar adelantos pendentes'}, 
                        status=status.HTTP_400_BAD_REQUEST)
     
     old_status = advance.status
@@ -193,6 +239,71 @@ def reject_advance(request, pk):
         status_to='rejected',
         changed_by=user,
         notes=request.data.get('notes', 'Adelanto rechazado')
+    )
+    
+    # NOTIFICACIÓN: Notificar al empleado que su adelanto fue rechazado
+    Notification.objects.create(
+        user=advance.employee.user,
+        type='warning',
+        title='Adelanto rechazado',
+        message=f'Tu solicitud de adelanto de ${advance.amount:,.0f} ha sido rechazada. Motivo: {request.data.get("notes", "Sin especificar")}',
+        related_advance=advance
+    )
+    
+    return Response(AdvanceSerializer(advance).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pending_advances(request):
+    """Obtener adelantos pendientes"""
+    user = request.user
+    
+    if user.is_admin:
+        queryset = Advance.objects.filter(status='pending')
+    elif user.is_employer:
+        queryset = Advance.objects.filter(status='pending', company__admin=user)
+    else:
+        queryset = Advance.objects.none()
+    
+    serializer = AdvanceListSerializer(queryset, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def disburse_advance(request, pk):
+    """Marcar un adelanto como desembolsado"""
+    try:
+        advance = Advance.objects.get(pk=pk)
+    except Advance.DoesNotExist:
+        return Response({'error': 'Adelanto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+    
+    user = request.user
+    if not user.is_admin:
+        return Response({'error': 'Solo los administradores pueden desembolsar'}, 
+                       status=status.HTTP_403_FORBIDDEN)
+    
+    if advance.status != 'approved':
+        return Response({'error': 'Solo se pueden desembolsar adelantos aprobados'}, 
+                       status=status.HTTP_400_BAD_REQUEST)
+    
+    old_status = advance.status
+    advance.status = 'disbursed'
+    advance.disbursed_at = timezone.now()
+    advance.disbursement_reference = request.data.get('disbursement_reference', '')
+    advance.save()
+    
+    # Actualizar límite disponible del empleado
+    advance.employee.available_advance_limit -= advance.amount
+    advance.employee.save()
+    
+    AdvanceHistory.objects.create(
+        advance=advance,
+        status_from=old_status,
+        status_to='disbursed',
+        changed_by=user,
+        notes=request.data.get('notes', 'Adelanto desembolsado')
     )
     
     return Response(AdvanceSerializer(advance).data)

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/data/services/auth_service.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_notifications_drawer.dart';
 import 'employee_help_page.dart';
-import '../providers/notification_provider.dart';
 import 'employee_main_page.dart';
 
 class EmployeeProfilePage extends StatefulWidget {
@@ -28,6 +29,12 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
   late TextEditingController _addressController;
   late TextEditingController _bankController;
   late TextEditingController _accountController;
+  late TextEditingController _companyController;
+
+  // Empresa seleccionada
+  int? _selectedCompanyId;
+  List<Map<String, dynamic>> _availableCompanies = [];
+  bool _loadingCompanies = false;
 
   // Controllers para seguridad
   final _currentPassController = TextEditingController();
@@ -46,6 +53,22 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshProfile();
     });
+    // Cargar empresas disponibles
+    _loadAvailableCompanies();
+  }
+
+  Future<void> _loadAvailableCompanies() async {
+    setState(() => _loadingCompanies = true);
+    try {
+      final response = await apiService.get('/api/companies/available/');
+      setState(() {
+        _availableCompanies = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      // Error silencioso
+    } finally {
+      setState(() => _loadingCompanies = false);
+    }
   }
   
   String _formatCurrency(double value) {
@@ -67,6 +90,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     _addressController.dispose();
     _bankController.dispose();
     _accountController.dispose();
+    _companyController.dispose();
     _currentPassController.dispose();
     _newPassController.dispose();
     _confirmPassController.dispose();
@@ -99,6 +123,12 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
         _accountController = TextEditingController(
           text: user?.employeeProfile?.bankAccount?.isNotEmpty == true
               ? user!.employeeProfile!.bankAccount!
+              : 'No especificada',
+        );
+        _selectedCompanyId = user?.employeeProfile?.companyId;
+        _companyController = TextEditingController(
+          text: user?.employeeProfile?.companyName?.isNotEmpty == true
+              ? user!.employeeProfile!.companyName!
               : 'No especificada',
         );
         
@@ -299,11 +329,25 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   enabled: _isEditing,
                 ),
                 const SizedBox(height: 16),
-                _buildDropdownField(
-                  icon: Icons.account_balance_outlined,
-                  label: 'Banco',
+                // Campo de empresa
+                _isEditing 
+                  ? _buildCompanyDropdown()
+                  : _buildFormField(
+                      icon: Icons.business_outlined,
+                      label: 'Empresa',
+                      controller: _companyController,
+                      enabled: false,
+                    ),
+                const SizedBox(height: 16),
+                _buildBankDropdown(
+                  context: context,
                   value: _bankController.text,
                   enabled: _isEditing,
+                  onChanged: (value) {
+                    setState(() {
+                      _bankController.text = value;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildFormField(
@@ -459,15 +503,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Implementar cambio de contraseña
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Contraseña actualizada exitosamente'),
-                          backgroundColor: Color(0xFF059669),
-                        ),
-                      );
-                    },
+                    onPressed: () => _updatePassword(context),
                     icon: const Icon(Icons.key, size: 18),
                     label: const Text(
                       'Actualizar Contraseña',
@@ -596,22 +632,41 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     );
   }
 
-  Widget _buildDropdownField({
-    required IconData icon,
-    required String label,
+  // Lista de bancos disponibles
+  final List<String> _banks = [
+    'Bancolombia',
+    'Banco de Bogotá',
+    'Davivienda',
+    'BBVA Colombia',
+    'Citibank',
+    'Itaú',
+    'Scotiabank Colpatria',
+    'Banco Popular',
+    'Banco de Occidente',
+    'Banco Caja Social',
+    'Banco Agrario',
+    'Nequi (Bancolombia)',
+    'Daviplata',
+    'Movii',
+    'Otro',
+  ];
+
+  Widget _buildBankDropdown({
+    required BuildContext context,
     required String value,
-    bool enabled = true,
+    required bool enabled,
+    required Function(String) onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: const Color(0xFF6B7280)),
+            const Icon(Icons.account_balance_outlined, size: 18, color: Color(0xFF6B7280)),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
+            const Text(
+              'Banco',
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF374151),
@@ -620,30 +675,336 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
           ],
         ),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  color: enabled ? const Color(0xFF111827) : Colors.grey[500],
+        InkWell(
+          onTap: enabled
+              ? () => _showBankSelector(context, value, onChanged)
+              : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(10),
+              border: enabled
+                  ? Border.all(color: const Color(0xFFE5E7EB))
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  value == 'No especificado' ? 'Seleccionar banco...' : value,
+                  style: TextStyle(
+                    color: value == 'No especificado'
+                        ? Colors.grey[500]
+                        : enabled
+                            ? const Color(0xFF111827)
+                            : Colors.grey[500],
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.keyboard_arrow_down,
-                color: enabled ? const Color(0xFF6B7280) : Colors.grey[400],
-              ),
-            ],
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  color: enabled ? const Color(0xFF6B7280) : Colors.grey[400],
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildCompanyDropdown() {
+    if (_loadingCompanies) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    if (_availableCompanies.isEmpty) {
+      return _buildFormField(
+        icon: Icons.business_outlined,
+        label: 'Empresa',
+        controller: _companyController,
+        enabled: false,
+      );
+    }
+
+    // Encontrar el nombre de la empresa seleccionada
+    final selectedCompany = _availableCompanies.firstWhere(
+      (c) => c['id'] == _selectedCompanyId,
+      orElse: () => {'name': 'Seleccionar empresa...'},
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.business_outlined, size: 18, color: Color(0xFF6B7280)),
+            const SizedBox(width: 8),
+            const Text(
+              'Empresa',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF374151),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: () => _showCompanySelector(),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  selectedCompany['name'] ?? 'Seleccionar empresa...',
+                  style: const TextStyle(color: Color(0xFF111827)),
+                ),
+                const Icon(Icons.keyboard_arrow_down, color: Color(0xFF6B7280)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCompanySelector() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Seleccionar empresa',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _availableCompanies.length,
+                  itemBuilder: (context, index) {
+                    final company = _availableCompanies[index];
+                    final isSelected = company['id'] == _selectedCompanyId;
+                    return ListTile(
+                      leading: Icon(
+                        Icons.business,
+                        color: isSelected ? const Color(0xFF2563EB) : Colors.grey[400],
+                      ),
+                      title: Text(company['name']),
+                      subtitle: company['legal_name'] != null 
+                        ? Text(company['legal_name'], style: TextStyle(fontSize: 12, color: Colors.grey[600]))
+                        : null,
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: Color(0xFF2563EB))
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedCompanyId = company['id'];
+                          _companyController.text = company['name'];
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showBankSelector(BuildContext context, String currentValue, Function(String) onChanged) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Seleccionar banco',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _banks.length,
+                  itemBuilder: (context, index) {
+                    final bank = _banks[index];
+                    final isSelected = bank == currentValue ||
+                        (currentValue == 'No especificado' && index == 0);
+                    return ListTile(
+                      leading: Icon(
+                        Icons.account_balance,
+                        color: isSelected ? const Color(0xFF2563EB) : Colors.grey[400],
+                      ),
+                      title: Text(bank),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: Color(0xFF2563EB))
+                          : null,
+                      onTap: () {
+                        onChanged(bank);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updatePassword(BuildContext context) async {
+    final oldPassword = _currentPassController.text.trim();
+    final newPassword = _newPassController.text.trim();
+    final confirmPassword = _confirmPassController.text.trim();
+    
+    // Validaciones
+    if (oldPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa tu contraseña actual'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    
+    if (newPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa la nueva contraseña'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La nueva contraseña debe tener al menos 6 caracteres'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    
+    if (newPassword != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Las contraseñas no coinciden'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    
+    if (oldPassword == newPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La nueva contraseña debe ser diferente a la actual'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    
+    // Mostrar loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    try {
+      final authService = context.read<AuthService>();
+      await authService.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+      );
+      
+      // Cerrar loading
+      Navigator.pop(context);
+      
+      // Limpiar campos
+      _currentPassController.clear();
+      _newPassController.clear();
+      _confirmPassController.clear();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Contraseña actualizada exitosamente'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
+    } catch (e) {
+      // Cerrar loading
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
   }
 
   Widget _buildPasswordField({

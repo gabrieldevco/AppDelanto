@@ -10,4 +10,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('companies/<int:pk>/stats/', views.company_stats, name='company-stats'),
     path('my-company/', views.my_company, name='my-company'),
+    path('companies/available/', views.available_companies, name='available-companies'),
 ]

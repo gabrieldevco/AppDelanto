@@ -14,6 +14,7 @@ class UserModel {
   // Perfiles específicos por rol
   final EmployeeProfile? employeeProfile;
   final AdminProfile? adminProfile;
+  final Company? company; // Para empleadores
 
   UserModel({
     required this.id,
@@ -29,6 +30,7 @@ class UserModel {
     required this.updatedAt,
     this.employeeProfile,
     this.adminProfile,
+    this.company,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,9 @@ class UserModel {
               : null,
       adminProfile: json['admin_profile'] != null
           ? AdminProfile.fromJson(json['admin_profile'])
+          : null,
+      company: json['company'] != null
+          ? Company.fromJson(json['company'])
           : null,
     );
   }
@@ -190,6 +195,46 @@ class AdminProfile {
       'id': id,
       'is_super_admin': isSuperAdmin,
       'permissions': permissions,
+    };
+  }
+}
+
+class Company {
+  final int id;
+  final String name;
+  final String? legalName;
+  final String? email;
+  final String? phone;
+  final bool isActive;
+
+  Company({
+    required this.id,
+    required this.name,
+    this.legalName,
+    this.email,
+    this.phone,
+    this.isActive = true,
+  });
+
+  factory Company.fromJson(Map<String, dynamic> json) {
+    return Company(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      legalName: json['legal_name'],
+      email: json['email'],
+      phone: json['phone'],
+      isActive: json['is_active'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'legal_name': legalName,
+      'email': email,
+      'phone': phone,
+      'is_active': isActive,
     };
   }
 }

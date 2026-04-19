@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/services/api_service.dart';
 import '../models/user_model.dart';
@@ -43,6 +44,7 @@ class AuthService {
     double? salary,
     String? businessName,
     String? companyName,
+    int? companyId,
     File? chamberOfCommerceFile,
     String? bankAccount,
     String? bankName,
@@ -81,6 +83,9 @@ class AuthService {
       if (bankName != null && bankName.isNotEmpty) {
         formMap['bank_name'] = bankName;
       }
+      if (companyId != null) {
+        formMap['company_id'] = companyId.toString();
+      }
       
       // Archivo PDF de cámara de comercio
       if (chamberOfCommerceFile != null) {
@@ -118,10 +123,25 @@ class AuthService {
   // Logout
   Future<void> logout() async {
     try {
-      await _apiService.post(ApiConstants.authLogout);
+      // Obtener token antes de limpiarlo
+      final token = await _getToken();
+      if (token != null) {
+        await _apiService.post(
+          ApiConstants.authLogout,
+          options: Options(headers: {'Authorization': 'Token $token'}),
+        );
+      }
+    } catch (e) {
+      // Ignorar errores de logout
     } finally {
       await _apiService.clearAuthToken();
     }
+  }
+
+  // Obtener token guardado
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
   }
 
   // Get current user profile

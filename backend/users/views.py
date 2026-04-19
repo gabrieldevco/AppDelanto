@@ -83,7 +83,7 @@ def login(request):
         user = serializer.validated_data['user']
         token, _ = Token.objects.get_or_create(user=user)
         return Response({
-            'user': UserSerializer(user).data,
+            'user': UserWithProfileSerializer(user, context={'request': request}).data,
             'token': token.key
         })
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -102,7 +102,38 @@ def logout(request):
 def me(request):
     """Obtener información del usuario actual"""
     user = request.user
-    return Response(UserWithProfileSerializer(user, context={'request': request}).data)
+    # Usar UserWithProfileSerializer para incluir perfil y empresa
+    data = UserWithProfileSerializer(user, context={'request': request}).data
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Cambiar contraseña del usuario actual"""
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+    
+    if not old_password or not new_password:
+        return Response(
+            {'error': 'Se requieren old_password y new_password'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    user = request.user
+    
+    # Verificar contraseña actual
+    if not user.check_password(old_password):
+        return Response(
+            {'error': 'La contraseña actual es incorrecta'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Cambiar contraseña
+    user.set_password(new_password)
+    user.save()
+    
+    return Response({'message': 'Contraseña cambiada exitosamente'})
 
 
 @api_view(['GET'])

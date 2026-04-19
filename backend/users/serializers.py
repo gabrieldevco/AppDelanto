@@ -25,18 +25,19 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     # Campos adicionales para empleador
     business_name = serializers.CharField(required=False, allow_blank=True)  # Razón social
     company_name = serializers.CharField(required=False, allow_blank=True)   # Nombre comercial
-    chamber_of_commerce_document = serializers.FileField(required=False, allow_null=True)
     
-    # Datos bancarios (para ambos)
+    # Campos para información bancaria del empleado
     bank_account = serializers.CharField(required=False, allow_blank=True)
     bank_name = serializers.CharField(required=False, allow_blank=True)
+    
+    # Campo para empresa (solo empleados)
+    company_id = serializers.IntegerField(required=False, allow_null=True)
     
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password_confirm', 
                   'first_name', 'last_name', 'role', 'phone', 'document_number',
-                  'salary', 'business_name', 'company_name', 'chamber_of_commerce_document',
-                  'bank_account', 'bank_name']
+                  'salary', 'business_name', 'company_name', 'bank_account', 'bank_name', 'company_id']
     
     def validate(self, data):
         if data['password'] != data['password_confirm']:
@@ -48,6 +49,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if role == 'employee':
             if not data.get('salary'):
                 raise serializers.ValidationError({"salary": "El salario es requerido para empleados"})
+            if not data.get('company_id'):
+                raise serializers.ValidationError({"company_id": "Debes seleccionar una empresa para registrarte"})
         
         elif role == 'employer':
             if not data.get('business_name'):
@@ -62,9 +65,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         salary = validated_data.pop('salary', None)
         business_name = validated_data.pop('business_name', '')
         company_name = validated_data.pop('company_name', '')
-        chamber_doc = validated_data.pop('chamber_of_commerce_document', None)
         bank_account = validated_data.pop('bank_account', '')
         bank_name = validated_data.pop('bank_name', '')
+        company_id = validated_data.pop('company_id', None)
         
         validated_data.pop('password_confirm')
         
@@ -82,29 +85,40 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         # Crear perfil según rol
         if user.role == 'employee':
-            self._create_employee_profile(user, salary, bank_account, bank_name)
+            self._create_employee_profile(user, salary, bank_account, bank_name, company_id)
         elif user.role == 'employer':
-            self._create_employer_company(user, business_name, company_name, chamber_doc, bank_account, bank_name)
+            self._create_employer_company(user, business_name, company_name)
         elif user.role == 'admin':
             self._create_admin_profile(user)
         
         return user
     
-    def _create_employee_profile(self, user, salary, bank_account, bank_name):
+    def _create_employee_profile(self, user, salary, bank_account='', bank_name='', company_id=None):
         """Crear perfil de empleado"""
         from decimal import Decimal
+        from companies.models import Company
+        
         salary_decimal = Decimal(str(salary)) if salary else Decimal('0')
         advance_limit = salary_decimal * Decimal('0.5')  # 50% del salario
+        
+        # Buscar empresa si se proporcionó company_id
+        company = None
+        if company_id:
+            try:
+                company = Company.objects.get(id=company_id, is_active=True)
+            except Company.DoesNotExist:
+                pass
         
         EmployeeProfile.objects.create(
             user=user,
             salary=salary_decimal,
             available_advance_limit=advance_limit,
             bank_account=bank_account or '',
-            bank_name=bank_name or ''
+            bank_name=bank_name or '',
+            company=company
         )
     
-    def _create_employer_company(self, user, business_name, company_name, chamber_doc, bank_account, bank_name):
+    def _create_employer_company(self, user, business_name, company_name):
         """Crear empresa para empleador"""
         from companies.models import Company, CompanySettings
         
@@ -113,10 +127,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             legal_name=business_name,
             admin=user,
             phone=user.phone or '',
-            email=user.email,
-            chamber_of_commerce_document=chamber_doc,
-            bank_account=bank_account or '',
-            bank_name=bank_name or ''
+            email=user.email
         )
         
         # Crear configuración por defecto

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../advances/presentation/providers/advance_provider.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_bottom_nav.dart';
 import '../widgets/employee_notifications_drawer.dart';
@@ -44,6 +45,169 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
       (Match m) => '${m[1]}.',
     );
     return result;
+  }
+
+  void _showConfirmationDialog(BuildContext context) {
+    final amountFormatted = _formatCurrency(_amount);
+    final totalFormatted = _formatCurrency(_total);
+    final feeFormatted = _formatCurrency(_fee);
+    final interestFormatted = _formatCurrency(_interest);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Confirmar solicitud',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '¿Desea realizar un adelanto por \$ $amountFormatted?',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Se descontará de su nómina:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildConfirmRow('Monto adelantado:', '\$ $amountFormatted'),
+                    _buildConfirmRow('Fee transacción:', '\$ $feeFormatted'),
+                    _buildConfirmRow('Interés:', '\$ $interestFormatted'),
+                    const Divider(height: 16, color: Color(0xFFF59E0B)),
+                    _buildConfirmRow('Total a descontar:', '\$ $totalFormatted', isBold: true),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Su empleador debe aprobar esta solicitud.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Color(0xFF6B7280)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _submitAdvanceRequest(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildConfirmRow(String label, String value, {bool isBold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: const Color(0xFF92400E),
+            fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            color: const Color(0xFF92400E),
+            fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitAdvanceRequest(BuildContext context) async {
+    // Mostrar loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    try {
+      final advanceProvider = context.read<AdvanceProvider>();
+      final success = await advanceProvider.createAdvance(
+        amount: _amount,
+        reason: 'Adelanto de nómina por ${_days.toInt()} días',
+      );
+      
+      // Cerrar loading
+      Navigator.pop(context);
+      
+      if (success) {
+        // Mostrar éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Solicitud enviada exitosamente'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
+        
+        // Navegar al historial o inicio
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(advanceProvider.errorMessage ?? 'Error al enviar solicitud'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    } catch (e) {
+      // Cerrar loading
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
   }
 
   @override
@@ -350,9 +514,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Continuar con la solicitud
-                },
+                onPressed: () => _showConfirmationDialog(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,

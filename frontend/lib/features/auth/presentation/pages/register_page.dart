@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../employee/presentation/pages/employee_main_page.dart';
 import '../../../employer/presentation/pages/employer_main_page.dart';
 import '../../../admin/presentation/pages/admin_main_page.dart';
@@ -21,9 +22,11 @@ class RegisterStep2Data {
   String confirmPassword = '';
   // Empleado
   String salary = '';
+  int? companyId;
+  String companyName = '';
   // Empleador
   String businessName = '';
-  String companyName = '';
+  String employerCompanyName = '';
   File? chamberOfCommerceFile;
   String chamberFileName = '';
 }
@@ -54,6 +57,30 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey1 = GlobalKey<FormState>();
   final _formKey2 = GlobalKey<FormState>();
   final _formKey3 = GlobalKey<FormState>();
+
+  // Lista de empresas disponibles
+  List<Map<String, dynamic>> _availableCompanies = [];
+  bool _loadingCompanies = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableCompanies();
+  }
+
+  Future<void> _loadAvailableCompanies() async {
+    setState(() => _loadingCompanies = true);
+    try {
+      final response = await apiService.get('/api/companies/available/');
+      setState(() {
+        _availableCompanies = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      // Error silencioso, el usuario puede continuar sin seleccionar empresa
+    } finally {
+      setState(() => _loadingCompanies = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,13 +135,15 @@ class _RegisterPageState extends State<RegisterPage> {
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 400;
         final barMargin = isSmallScreen ? 4.0 : 8.0;
+        final isEmployer = step1.role == 'employer';
+        final totalSteps = isEmployer ? 2 : 3;
         
         return Column(
           children: [
             // Barra de progreso
             Row(
               children: [
-                _buildStepIndicator(1, 'Paso 1'),
+                _buildStepIndicator(1, 'Paso 1', totalSteps: totalSteps),
                 Flexible(
                   child: Container(
                     height: 4,
@@ -143,34 +172,37 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-                _buildStepIndicator(2, 'Paso 2'),
-                Flexible(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Container(
-                        height: 4,
-                        margin: EdgeInsets.symmetric(horizontal: barMargin),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE5E7EB),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: _currentStep >= 3 ? constraints.maxWidth : 0,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.circular(2),
+                _buildStepIndicator(2, 'Paso 2', totalSteps: totalSteps),
+                // Solo mostrar paso 3 para empleados
+                if (!isEmployer) ...[
+                  Flexible(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Container(
+                          height: 4,
+                          margin: EdgeInsets.symmetric(horizontal: barMargin),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE5E7EB),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: _currentStep >= 3 ? constraints.maxWidth : 0,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                _buildStepIndicator(3, 'Paso 3'),
+                  _buildStepIndicator(3, 'Paso 3', totalSteps: totalSteps),
+                ],
               ],
             ),
           ],
@@ -179,7 +211,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildStepIndicator(int step, String label) {
+  Widget _buildStepIndicator(int step, String label, {int totalSteps = 3}) {
     final isActive = _currentStep >= step;
     final isCurrent = _currentStep == step;
 
@@ -467,18 +499,21 @@ class _RegisterPageState extends State<RegisterPage> {
               keyboardType: TextInputType.number,
               validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
             ),
+            const SizedBox(height: 16),
+            // Dropdown de empresas
+            _buildCompanyDropdown(),
           ] else if (isEmployer) ...[
             _buildTextField(
               label: 'Razón Social',
-              hint: 'Empresa ABC S.A.S',
+              hint: 'ABC',
               onChanged: (v) => step2.businessName = v,
               validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               label: 'Nombre de la Empresa',
-              hint: 'ABC',
-              onChanged: (v) => step2.companyName = v,
+              hint: 'Empresa ABC S.A.S',
+              onChanged: (v) => step2.employerCompanyName = v,
               validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
             ),
             const SizedBox(height: 16),
@@ -486,23 +521,27 @@ class _RegisterPageState extends State<RegisterPage> {
           ],
           const SizedBox(height: 24),
 
-          // Botón siguiente
+          // Botón siguiente o crear cuenta
           SizedBox(
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: _goToStep3,
+              onPressed: isEmployer ? _registerEmployer : _goToStep3,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Siguiente →', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text(
+                    isEmployer ? 'Crear Cuenta' : 'Siguiente →',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ),
@@ -543,6 +582,55 @@ class _RegisterPageState extends State<RegisterPage> {
   void _goToStep3() {
     if (_formKey2.currentState!.validate()) {
       setState(() => _currentStep = 3);
+    }
+  }
+
+  // Registro para empleadores (sin paso 3)
+  Future<void> _registerEmployer() async {
+    if (!_formKey2.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.register(
+      username: step1.email.split('@').first,
+      email: step1.email,
+      password: step2.password,
+      firstName: step1.fullName.split(' ').first,
+      lastName: step1.fullName.split(' ').skip(1).join(' '),
+      role: step1.role,
+      phone: null,
+      documentNumber: step1.documentNumber,
+      salary: null,
+      businessName: step2.businessName,
+      companyName: step2.employerCompanyName,
+      companyId: null,
+      chamberOfCommerceFile: step2.chamberOfCommerceFile,
+      bankAccount: null,
+      bankName: null,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registro exitoso. Por favor inicia sesión.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Error al registrar'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -753,7 +841,8 @@ class _RegisterPageState extends State<RegisterPage> {
       documentNumber: step1.documentNumber,
       salary: step2.salary.isNotEmpty ? double.tryParse(step2.salary) : null,
       businessName: step2.businessName,
-      companyName: step2.companyName,
+      companyName: step2.employerCompanyName,
+      companyId: step2.companyId,
       chamberOfCommerceFile: step2.chamberOfCommerceFile,
       bankAccount: step3.accountNumber,
       bankName: step3.bankName,
@@ -783,6 +872,49 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       );
     }
+  }
+
+  // Dropdown de empresas para empleados
+  Widget _buildCompanyDropdown() {
+    if (_loadingCompanies) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_availableCompanies.isEmpty) {
+      return _buildTextField(
+        label: 'Empresa',
+        hint: 'Nombre de tu empresa',
+        onChanged: (v) => step2.companyName = v,
+        validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+      );
+    }
+
+    final items = _availableCompanies.map((company) {
+      return DropdownMenuItem<int>(
+        value: company['id'] as int,
+        child: Text(company['name'] as String),
+      );
+    }).toList();
+
+    // Agregar item por defecto
+    items.insert(0, const DropdownMenuItem<int>(
+      value: null,
+      child: Text('Selecciona una empresa...', style: TextStyle(color: Color(0xFF9CA3AF))),
+    ));
+
+    return _buildDropdown(
+      label: 'Empresa',
+      hint: 'Selecciona tu empresa',
+      icon: Icons.business,
+      value: step2.companyId,
+      items: items,
+      onChanged: (value) => setState(() => step2.companyId = value as int?),
+    );
   }
 
   // Widgets auxiliares

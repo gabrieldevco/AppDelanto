@@ -119,11 +119,12 @@ class ApiService {
   }
 
   // POST request
-  Future<dynamic> post(String path, {dynamic data}) async {
+  Future<dynamic> post(String path, {dynamic data, Options? options}) async {
     try {
       final response = await _dio.post(
         path,
         data: data,
+        options: options,
       );
       return _handleResponse(response);
     } on SocketException catch (e) {

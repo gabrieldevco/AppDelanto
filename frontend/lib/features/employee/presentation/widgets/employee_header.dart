@@ -231,12 +231,11 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
-                        Navigator.pop(context);
                         // Cerrar sesión en backend
                         await context.read<AuthProvider>().logout();
+                        // Navegar al login (el diálogo se cierra automáticamente)
                         if (context.mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
+                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                             MaterialPageRoute(builder: (_) => const LoginPage()),
                             (route) => false,
                           );
