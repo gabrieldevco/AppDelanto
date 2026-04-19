@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/auth_service.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart' as main_notifications;
+import '../../../employer/presentation/widgets/employer_notifications_drawer.dart';
+import '../../../admin/presentation/widgets/admin_notifications_drawer.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -52,16 +55,21 @@ class AuthProvider extends ChangeNotifier {
 
   // Login
   Future<bool> login({
-    required String username,
+    required String email,
     required String password,
   }) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
+    _token = null;  // Limpiar token anterior
+    _user = null;  // Limpiar usuario anterior
+    // Limpiar notificaciones de todos los roles
+    EmployerNotificationProvider.clearNotifications();
+    AdminNotificationProvider.clearNotifications();
     notifyListeners();
 
     try {
       final response = await _authService.login(
-        username: username,
+        email: email,
         password: password,
       );
       
@@ -126,7 +134,19 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = AuthStatus.error;
-      _errorMessage = 'Error al registrar: ${e.toString()}';
+      
+      // Mostrar mensaje exacto del backend
+      String errorMsg = e.toString();
+      // Limpiar el prefijo "ApiException: " si existe
+      if (errorMsg.startsWith('ApiException: ')) {
+        errorMsg = errorMsg.substring('ApiException: '.length);
+      }
+      // Extraer solo el mensaje antes de "(Status:"
+      if (errorMsg.contains(' (Status:')) {
+        errorMsg = errorMsg.split(' (Status:')[0];
+      }
+      
+      _errorMessage = errorMsg;
       notifyListeners();
       return false;
     }
@@ -147,6 +167,9 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _status = AuthStatus.unauthenticated;
     _errorMessage = null;
+    // Limpiar notificaciones al cerrar sesión
+    EmployerNotificationProvider.clearNotifications();
+    AdminNotificationProvider.clearNotifications();
     notifyListeners();
   }
 

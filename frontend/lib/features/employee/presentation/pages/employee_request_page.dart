@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_bottom_nav.dart';
 import '../widgets/employee_notifications_drawer.dart';
@@ -14,10 +16,18 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   double _amount = 100000;
   double _days = 25;
   
-  final double _maxAmount = 1000000;
   final double _minAmount = 50000;
   final double _fee = 5000;
   final double _monthlyRate = 0.025; // 2.5%
+  
+  @override
+  void initState() {
+    super.initState();
+    // Refrescar perfil al cargar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().refreshProfile();
+    });
+  }
 
   double get _interest {
     return (_amount * _monthlyRate * (_days / 30));
@@ -26,9 +36,29 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   double get _total {
     return _amount + _fee + _interest;
   }
+  
+  String _formatCurrency(double value) {
+    String result = value.toStringAsFixed(0);
+    result = result.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final user = authProvider.user;
+        final maxAmount = user?.employeeProfile?.availableAdvanceLimit ?? 1000000;
+        final salary = user?.employeeProfile?.salary ?? 0.0;
+        
+        // Ajustar monto inicial si es mayor al máximo
+        if (_amount > maxAmount) {
+          _amount = maxAmount > _minAmount ? maxAmount : _minAmount;
+        }
+        
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       endDrawer: const EmployeeNotificationsDrawer(),
@@ -42,7 +72,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-            // Disponible card
+            // Disponible card con datos reales
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -52,16 +82,16 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
               ),
               child: Column(
                 children: [
-                  const Text(
-                    'Disponible para adelantar (50% salario)',
-                    style: TextStyle(
+                  Text(
+                    'Disponible para adelantar (50% de \$${_formatCurrency(salary)})',
+                    style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF059669),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$ ${_maxAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => '.')}',
+                    '\$ ${_formatCurrency(maxAmount)}',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -113,7 +143,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                     onChanged: (value) {
                       setState(() {
                         _amount = double.tryParse(value.replaceAll('.', '')) ?? _minAmount;
-                        if (_amount > _maxAmount) _amount = _maxAmount;
+                        if (_amount > maxAmount) _amount = maxAmount;
                         if (_amount < _minAmount) _amount = _minAmount;
                       });
                     },
@@ -138,7 +168,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                     child: Slider(
                       value: _amount,
                       min: _minAmount,
-                      max: _maxAmount,
+                      max: maxAmount,
                       onChanged: (value) {
                         setState(() {
                           _amount = value;
@@ -150,14 +180,14 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$ ${_minAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => '.')}',
+                        '\$ ${_formatCurrency(_minAmount)}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade500,
                         ),
                       ),
                       Text(
-                        '\$ ${_maxAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => '.')}',
+                        '\$ ${_formatCurrency(maxAmount)}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade500,
@@ -368,7 +398,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                   ),
                   const SizedBox(height: 12),
                   _buildInfoBullet('Monto mínimo: \$ 50.000'),
-                  _buildInfoBullet('Límite máximo: 50% de tu salario'),
+                  _buildInfoBullet('Límite máximo: \$${_formatCurrency(maxAmount)} (50% de tu salario)'),
                   _buildInfoBullet('\$50k - \$150k → Fee \$5k'),
                   _buildInfoBullet('Interés: 2.5% mensual (proporcional a días)'),
                   _buildInfoBullet('Descuento en próxima nómina'),
@@ -383,6 +413,64 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         ),
       ),
       bottomNavigationBar: const EmployeeBottomNav(currentIndex: 1),
+    );
+  },
+); // Cierra Consumer
+  }
+
+  Widget _buildInfoCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

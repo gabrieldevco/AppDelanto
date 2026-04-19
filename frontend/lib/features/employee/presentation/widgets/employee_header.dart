@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../pages/employee_help_page.dart';
 import '../pages/employee_profile_page.dart';
-import '../providers/notification_provider.dart';
+import '../pages/employee_main_page.dart';
 
 class EmployeeHeader extends StatefulWidget {
   final VoidCallback? onNotificationTap;
@@ -22,113 +23,114 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
   @override
   void initState() {
     super.initState();
-    notificationProvider.addListener(_onNotificationUpdate);
+    // Cargar conteo de notificaciones no leídas
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().refreshUnreadCount();
+    });
   }
-
-  @override
-  void dispose() {
-    notificationProvider.removeListener(_onNotificationUpdate);
-    super.dispose();
-  }
-
-  void _onNotificationUpdate() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  int get _unreadCount => notificationProvider.unreadCount;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, child) {
+        final authProvider = context.watch<AuthProvider>();
+        final user = authProvider.user;
+        final userName = user?.firstName != null && user?.lastName != null
+            ? '${user?.firstName} ${user?.lastName}'
+            : user?.firstName ?? user?.username ?? 'Usuario';
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFF2563EB),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-            child: const Icon(
-              Icons.attach_money,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'AppDelanta',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF111827),
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2563EB),
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
                 ),
-                Text(
-                  'Juan Pérez',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF6B7280),
-                  ),
+                child: const Icon(
+                  Icons.attach_money,
+                  color: Colors.white,
+                  size: 20,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AppDelanta',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildNotificationIcon(context, notificationProvider),
+              IconButton(
+                icon: const Icon(Icons.help_outline, size: 20),
+                color: const Color(0xFF6B7280),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const EmployeeHelpPage()),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.person_outline, size: 20),
+                color: const Color(0xFF6B7280),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const EmployeeProfilePage()),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout, size: 20),
+                color: const Color(0xFFDC2626),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () => _showLogoutDialog(context),
+              ),
+            ],
           ),
-          _buildNotificationIcon(context),
-          IconButton(
-            icon: const Icon(Icons.help_outline, size: 20),
-            color: const Color(0xFF6B7280),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EmployeeHelpPage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline, size: 20),
-            color: const Color(0xFF6B7280),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EmployeeProfilePage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, size: 20),
-            color: const Color(0xFFDC2626),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            onPressed: () => _showLogoutDialog(context),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildNotificationIcon(BuildContext context) {
+  Widget _buildNotificationIcon(BuildContext context, NotificationProvider notificationProvider) {
+    final unreadCount = notificationProvider.unreadCount;
+    
     return Stack(
       children: [
         IconButton(
@@ -140,7 +142,7 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
             Scaffold.of(context).openEndDrawer();
           },
         ),
-        if (_unreadCount > 0)
+        if (unreadCount > 0)
           Positioned(
             right: 2,
             top: 2,
@@ -156,7 +158,7 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
               ),
               child: Center(
                 child: Text(
-                  _unreadCount > 9 ? '9+' : '$_unreadCount',
+                  unreadCount > 9 ? '9+' : '$unreadCount',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 9,

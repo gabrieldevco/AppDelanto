@@ -42,7 +42,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.login(
-      username: email,
+      email: email,
       password: password,
     );
 

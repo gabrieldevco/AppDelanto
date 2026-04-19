@@ -104,71 +104,78 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildStepHeader() {
-    return Column(
-      children: [
-        // Barra de progreso
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 400;
+        final barMargin = isSmallScreen ? 4.0 : 8.0;
+        
+        return Column(
           children: [
-            _buildStepIndicator(1, 'Paso 1 de 3'),
-            Expanded(
-              child: Container(
-                height: 4,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Row(
-                      children: [
-                        Container(
-                          width: _currentStep >= 2
-                              ? constraints.maxWidth
-                              : (_currentStep == 1 ? null : 0),
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-            _buildStepIndicator(2, 'Paso 2 de 3'),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return Container(
+            // Barra de progreso
+            Row(
+              children: [
+                _buildStepIndicator(1, 'Paso 1'),
+                Flexible(
+                  child: Container(
                     height: 4,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    margin: EdgeInsets.symmetric(horizontal: barMargin),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE5E7EB),
                       borderRadius: BorderRadius.circular(2),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: _currentStep >= 3 ? constraints.maxWidth : 0,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Row(
+                          children: [
+                            Container(
+                              width: _currentStep >= 2
+                                  ? constraints.maxWidth
+                                  : (_currentStep == 1 ? null : 0),
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              ),
+                _buildStepIndicator(2, 'Paso 2'),
+                Flexible(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Container(
+                        height: 4,
+                        margin: EdgeInsets.symmetric(horizontal: barMargin),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE5E7EB),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: _currentStep >= 3 ? constraints.maxWidth : 0,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                _buildStepIndicator(3, 'Paso 3'),
+              ],
             ),
-            _buildStepIndicator(3, 'Paso 3 de 3'),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -176,32 +183,28 @@ class _RegisterPageState extends State<RegisterPage> {
     final isActive = _currentStep >= step;
     final isCurrent = _currentStep == step;
 
-    return Column(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
-            shape: BoxShape.circle,
-            border: isCurrent
-                ? Border.all(color: const Color(0xFF2563EB), width: 2)
-                : null,
-          ),
-          child: Center(
-            child: isActive && !isCurrent
-                ? const Icon(Icons.check, color: Colors.white, size: 16)
-                : Text(
-                    '$step',
-                    style: TextStyle(
-                      color: isActive ? Colors.white : const Color(0xFF6B7280),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-          ),
-        ),
-      ],
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
+        shape: BoxShape.circle,
+        border: isCurrent
+            ? Border.all(color: const Color(0xFF2563EB), width: 2)
+            : null,
+      ),
+      child: Center(
+        child: isActive && !isCurrent
+            ? const Icon(Icons.check, color: Colors.white, size: 16)
+            : Text(
+                '$step',
+                style: TextStyle(
+                  color: isActive ? Colors.white : const Color(0xFF6B7280),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+      ),
     );
   }
 
@@ -458,8 +461,9 @@ class _RegisterPageState extends State<RegisterPage> {
             _buildTextField(
               label: 'Salario Mensual',
               hint: '2000000',
-              prefix: const Text('\$ ', style: TextStyle(color: Color(0xFF2563EB))),
-              onChanged: (v) => step2.salary = v,
+              initialValue: step2.salary,
+              prefixText: '\$ ',
+              onChanged: (v) => setState(() => step2.salary = v),
               keyboardType: TextInputType.number,
               validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
             ),
@@ -758,36 +762,19 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = false);
 
     if (success && mounted) {
-      final user = authProvider.user;
-      if (user == null) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registro exitoso. Bienvenido!'),
+          content: Text('Registro exitoso. Por favor inicia sesión.'),
           backgroundColor: Colors.green,
         ),
       );
 
-      // Navegar según el rol
-      if (user.isEmployee) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const EmployeeMainPage()),
-          (route) => false,
-        );
-      } else if (user.isEmployer) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const EmployerMainPage()),
-          (route) => false,
-        );
-      } else if (user.isAdmin) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminMainPage()),
-          (route) => false,
-        );
-      }
+      // Navegar al login en lugar de mainpage
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -858,7 +845,7 @@ class _RegisterPageState extends State<RegisterPage> {
     required void Function(String) onChanged,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
-    Widget? prefix,
+    String? prefixText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,7 +869,12 @@ class _RegisterPageState extends State<RegisterPage> {
             hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
             filled: true,
             fillColor: const Color(0xFFF3F4F6),
-            prefixIcon: prefix != null ? Padding(padding: const EdgeInsets.only(left: 12), child: prefix) : null,
+            prefixText: prefixText,
+            prefixStyle: const TextStyle(
+              color: Color(0xFF2563EB),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

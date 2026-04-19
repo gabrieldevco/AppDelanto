@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../providers/notification_provider.dart';
-export '../providers/notification_provider.dart' show NotificationType;
+import 'package:provider/provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 
 class EmployeeNotificationsDrawer extends StatefulWidget {
   const EmployeeNotificationsDrawer({super.key});
@@ -13,38 +13,16 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
   @override
   void initState() {
     super.initState();
-    notificationProvider.addListener(_onNotificationUpdate);
-  }
-
-  @override
-  void dispose() {
-    notificationProvider.removeListener(_onNotificationUpdate);
-    super.dispose();
-  }
-
-  void _onNotificationUpdate() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  List<NotificationData> get _notifications => notificationProvider.notifications;
-  int get _unreadCount => notificationProvider.unreadCount;
-
-  void _markAsRead(String id) {
-    notificationProvider.markAsRead(id);
-  }
-
-  void _markAllAsRead() {
-    notificationProvider.markAllAsRead();
-  }
-
-  void _deleteNotification(String id) {
-    notificationProvider.deleteNotification(id);
+    // Cargar notificaciones al abrir
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().loadNotifications();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, child) {
     return Container(
       width: MediaQuery.of(context).size.width * 0.85,
       color: const Color(0xFFF8FAFC),
@@ -73,9 +51,9 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
                       ),
                     ),
                   ),
-                  if (_unreadCount > 0)
+                  if (notificationProvider.unreadCount > 0)
                     TextButton.icon(
-                      onPressed: _markAllAsRead,
+                      onPressed: () => notificationProvider.markAllAsRead(),
                       icon: const Icon(Icons.done_all, size: 18),
                       label: const Text('Marcar todo'),
                       style: TextButton.styleFrom(
@@ -91,39 +69,51 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
             ),
             // Contenido
             Expanded(
-              child: _notifications.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _notifications.length,
-                      itemBuilder: (context, index) {
-                        return _buildNotificationCard(_notifications[index]);
-                      },
-                    ),
+              child: Builder(
+                builder: (context) {
+                  final notifications = notificationProvider.notifications;
+                  
+                  if (notificationProvider.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  if (notifications.isEmpty) {
+                    return _buildEmptyState();
+                  }
+                  
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      return _buildNotificationCard(notifications[index]);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
       ),
     );
+      },
+    );
   }
 
-  Widget _buildNotificationCard(NotificationData notification) {
+  Widget _buildNotificationCard(dynamic notification) {
     Color iconColor;
     IconData iconData;
     
-    switch (notification.type) {
-      case NotificationType.success:
-        iconColor = const Color(0xFF059669);
-        iconData = Icons.check_circle;
-        break;
-      case NotificationType.warning:
-        iconColor = const Color(0xFFF59E0B);
-        iconData = Icons.warning;
-        break;
-      case NotificationType.info:
-        iconColor = const Color(0xFF2563EB);
-        iconData = Icons.info;
-        break;
+    // Determinar color e icono según el tipo
+    final type = notification.type?.toString().toLowerCase() ?? 'info';
+    if (type.contains('success') || type == 'aprobado' || type == 'desembolsado') {
+      iconColor = const Color(0xFF059669);
+      iconData = Icons.check_circle;
+    } else if (type.contains('warning') || type == 'rechazado' || type == 'pendiente') {
+      iconColor = const Color(0xFFF59E0B);
+      iconData = Icons.warning;
+    } else {
+      iconColor = const Color(0xFF2563EB);
+      iconData = Icons.info;
     }
 
     return Dismissible(
@@ -139,9 +129,9 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Color(0xFFDC2626)),
       ),
-      onDismissed: (_) => _deleteNotification(notification.id),
+      onDismissed: (_) => _deleteNotification(context, notification.id),
       child: GestureDetector(
-        onTap: () => _markAsRead(notification.id),
+        onTap: () => _markAsRead(context, notification.id),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -233,7 +223,7 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              notification.time,
+                              _formatTime(notification.createdAt),
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w400,
@@ -252,6 +242,26 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
         ),
       ),
     );
+  }
+
+  void _deleteNotification(BuildContext context, int id) {
+    context.read<NotificationProvider>().deleteNotification(id);
+  }
+
+  void _markAsRead(BuildContext context, int id) {
+    context.read<NotificationProvider>().markAsRead(id);
+  }
+
+  String _formatTime(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+    
+    if (diff.inMinutes < 1) return 'Hace un momento';
+    if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} minutos';
+    if (diff.inHours < 24) return 'Hace ${diff.inHours} horas';
+    if (diff.inDays < 30) return 'Hace ${diff.inDays} días';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 
   Widget _buildEmptyState() {

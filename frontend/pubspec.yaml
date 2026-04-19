@@ -51,7 +51,7 @@ dependencies:
   provider: ^6.1.1
 
   # File Picker para seleccionar archivos
-  file_picker: ^8.0.0+1
+  file_picker: ^8.1.2
   http_parser: ^4.0.2
 
   # Para abrir URLs y archivos

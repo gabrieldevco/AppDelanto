@@ -11,13 +11,13 @@ class AuthService {
 
   // Login
   Future<Map<String, dynamic>> login({
-    required String username,
+    required String email,
     required String password,
   }) async {
     final response = await _apiService.post(
       ApiConstants.authLogin,
       data: {
-        'username': username,
+        'email': email,
         'password': password,
       },
     );
@@ -48,8 +48,8 @@ class AuthService {
     String? bankName,
   }) async {
     try {
-      // Crear FormData para soporte de archivos
-      final formData = FormData.fromMap({
+      // Crear FormData para soporte de archivos - de forma segura
+      final Map<String, dynamic> formMap = {
         'username': username,
         'email': email,
         'password': password,
@@ -57,20 +57,40 @@ class AuthService {
         'first_name': firstName,
         'last_name': lastName,
         'role': role,
-        if (phone != null) 'phone': phone,
-        if (documentNumber != null) 'document_number': documentNumber,
-        if (salary != null) 'salary': salary,
-        if (businessName != null) 'business_name': businessName,
-        if (companyName != null) 'company_name': companyName,
-        if (bankAccount != null) 'bank_account': bankAccount,
-        if (bankName != null) 'bank_name': bankName,
-        // Archivo PDF de cámara de comercio
-        if (chamberOfCommerceFile != null)
-          'chamber_of_commerce_document': await MultipartFile.fromFile(
-            chamberOfCommerceFile.path,
-            filename: chamberOfCommerceFile.path.split('/').last,
-          ),
-      });
+      };
+      
+      // Agregar campos opcionales solo si no son null ni vacíos
+      if (phone != null && phone.isNotEmpty) {
+        formMap['phone'] = phone;
+      }
+      if (documentNumber != null && documentNumber.isNotEmpty) {
+        formMap['document_number'] = documentNumber;
+      }
+      if (salary != null) {
+        formMap['salary'] = salary.toString();
+      }
+      if (businessName != null && businessName.isNotEmpty) {
+        formMap['business_name'] = businessName;
+      }
+      if (companyName != null && companyName.isNotEmpty) {
+        formMap['company_name'] = companyName;
+      }
+      if (bankAccount != null && bankAccount.isNotEmpty) {
+        formMap['bank_account'] = bankAccount;
+      }
+      if (bankName != null && bankName.isNotEmpty) {
+        formMap['bank_name'] = bankName;
+      }
+      
+      // Archivo PDF de cámara de comercio
+      if (chamberOfCommerceFile != null) {
+        formMap['chamber_of_commerce_document'] = await MultipartFile.fromFile(
+          chamberOfCommerceFile.path,
+          filename: chamberOfCommerceFile.path.split('/').last,
+        );
+      }
+      
+      final formData = FormData.fromMap(formMap);
 
       final response = await _apiService.dio.post(
         ApiConstants.authRegister,

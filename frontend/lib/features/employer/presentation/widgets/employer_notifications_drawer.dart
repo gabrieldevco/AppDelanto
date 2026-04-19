@@ -23,29 +23,7 @@ enum NotificationType { success, warning, info }
 
 // Simple provider for employer notifications
 class EmployerNotificationProvider {
-  static final List<EmployerNotificationData> _notifications = [
-    EmployerNotificationData(
-      id: '1',
-      title: 'Nueva solicitud',
-      message: 'Juan Pérez ha solicitado un adelanto de \$500.000',
-      time: 'Hace 5 minutos',
-      type: NotificationType.info,
-    ),
-    EmployerNotificationData(
-      id: '2',
-      title: 'Solicitud aprobada',
-      message: 'La solicitud de María García ha sido desembolsada',
-      time: 'Hace 1 hora',
-      type: NotificationType.success,
-    ),
-    EmployerNotificationData(
-      id: '3',
-      title: 'Pago próximo',
-      message: 'Recordatorio: 3 empleados tienen pagos pendientes para mañana',
-      time: 'Hace 2 horas',
-      type: NotificationType.warning,
-    ),
-  ];
+  static final List<EmployerNotificationData> _notifications = [];  // Iniciar vacío - cargar desde backend
 
   static List<EmployerNotificationData> get notifications => _notifications;
   
@@ -76,6 +54,10 @@ class EmployerNotificationProvider {
         type: _notifications[i].type,
       );
     }
+  }
+
+  static void clearNotifications() {
+    _notifications.clear();
   }
 }
 

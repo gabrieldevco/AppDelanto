@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_notifications_drawer.dart';
 import 'employee_help_page.dart';
@@ -19,13 +21,13 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
   bool _isEditing = false;
 
   // Controllers para datos personales
-  final _nameController = TextEditingController(text: 'Juan Pérez');
-  final _emailController = TextEditingController(text: 'juan.perez@empresa.com');
-  final _idController = TextEditingController(text: '1234567890');
-  final _salaryController = TextEditingController(text: '\$ 2.000.000');
-  final _addressController = TextEditingController(text: 'Calle 123 #45-67');
-  final _bankController = TextEditingController(text: 'Bancolombia');
-  final _accountController = TextEditingController(text: '1234567890');
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _idController;
+  late TextEditingController _salaryController;
+  late TextEditingController _addressController;
+  late TextEditingController _bankController;
+  late TextEditingController _accountController;
 
   // Controllers para seguridad
   final _currentPassController = TextEditingController();
@@ -40,6 +42,19 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // Refrescar perfil al cargar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().refreshProfile();
+    });
+  }
+  
+  String _formatCurrency(double value) {
+    String result = value.toStringAsFixed(0);
+    result = result.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return result;
   }
 
   @override
@@ -60,45 +75,74 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      endDrawer: const EmployeeNotificationsDrawer(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            const EmployeeHeader(),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final user = authProvider.user;
+        
+        // Inicializar controllers con datos del usuario
+        _nameController = TextEditingController(
+          text: user?.firstName != null && user?.lastName != null
+              ? '${user?.firstName} ${user?.lastName}'
+              : user?.firstName ?? user?.username ?? 'Usuario',
+        );
+        _emailController = TextEditingController(text: user?.email ?? '');
+        _idController = TextEditingController(text: user?.documentNumber ?? '');
+        _salaryController = TextEditingController(
+          text: '\$ ${_formatCurrency(user?.employeeProfile?.salary ?? 0.0)}',
+        );
+        _addressController = TextEditingController(text: 'No especificada');
+        _bankController = TextEditingController(
+          text: user?.employeeProfile?.bankName?.isNotEmpty == true
+              ? user!.employeeProfile!.bankName!
+              : 'No especificado',
+        );
+        _accountController = TextEditingController(
+          text: user?.employeeProfile?.bankAccount?.isNotEmpty == true
+              ? user!.employeeProfile!.bankAccount!
+              : 'No especificada',
+        );
+        
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          endDrawer: const EmployeeNotificationsDrawer(),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                const EmployeeHeader(),
 
-            // TabBar
-            _buildTabBar(),
+                // TabBar
+                _buildTabBar(),
 
-            // Contenido
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildPersonalDataTab(),
-                  _buildSecurityTab(),
-                ],
+                // Contenido
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPersonalDataTab(user),
+                      _buildSecurityTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            backgroundColor: const Color(0xFF2563EB),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            label: const Text(
+              'Volver',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        backgroundColor: const Color(0xFF2563EB),
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
-        label: const Text(
-          'Volver',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -146,7 +190,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     );
   }
 
-  Widget _buildPersonalDataTab() {
+  Widget _buildPersonalDataTab(dynamic user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(

@@ -33,20 +33,26 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'],
-      username: json['username'],
-      email: json['email'],
+      id: json['id'] ?? 0,
+      username: json['username'] ?? '',
+      email: json['email'] ?? '',
       firstName: json['first_name'] ?? '',
       lastName: json['last_name'] ?? '',
-      role: json['role'],
+      role: json['role'] ?? 'employee',
       phone: json['phone'],
       documentNumber: json['document_number'],
       isActive: json['is_active'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.tryParse(json['created_at']) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null 
+          ? DateTime.tryParse(json['updated_at']) ?? DateTime.now()
+          : DateTime.now(),
       employeeProfile: json['employee_profile'] != null
           ? EmployeeProfile.fromJson(json['employee_profile'])
-          : null,
+          : json['profile'] != null  // Backend devuelve 'profile' en algunos endpoints
+              ? EmployeeProfile.fromJson(json['profile'])
+              : null,
       adminProfile: json['admin_profile'] != null
           ? AdminProfile.fromJson(json['admin_profile'])
           : null,
@@ -133,12 +139,14 @@ class EmployeeProfile {
 
   factory EmployeeProfile.fromJson(Map<String, dynamic> json) {
     return EmployeeProfile(
-      id: json['id'],
+      id: json['id'] ?? 0,
       companyId: json['company'],
       companyName: json['company_name'],
-      salary: double.parse(json['salary'].toString()),
-      availableAdvanceLimit: double.parse(json['available_advance_limit'].toString()),
-      hireDate: json['hire_date'] != null ? DateTime.parse(json['hire_date']) : null,
+      salary: json['salary'] != null ? double.parse(json['salary'].toString()) : 0.0,
+      availableAdvanceLimit: json['available_advance_limit'] != null 
+          ? double.parse(json['available_advance_limit'].toString()) 
+          : 0.0,
+      hireDate: json['hire_date'] != null ? DateTime.tryParse(json['hire_date']) : null,
       bankAccount: json['bank_account'],
       bankName: json['bank_name'],
     );

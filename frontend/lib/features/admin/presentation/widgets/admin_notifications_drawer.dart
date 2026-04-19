@@ -21,40 +21,7 @@ class AdminNotificationData {
 }
 
 class AdminNotificationProvider {
-  static final List<AdminNotificationData> _notifications = [
-    AdminNotificationData(
-      id: '0',
-      title: 'Nueva solicitud de adelanto',
-      message: 'Juan Pérez ha solicitado un adelanto de \$200.000',
-      time: 'Hace 2 minutos',
-      type: NotificationType.info,
-      isRead: false,
-    ),
-    AdminNotificationData(
-      id: '1',
-      title: 'Nuevo empleador registrado',
-      message: 'Empresa ABC se ha registrado en la plataforma',
-      time: 'Hace 5 minutos',
-      type: NotificationType.success,
-      isRead: false,
-    ),
-    AdminNotificationData(
-      id: '2',
-      title: 'Desembolso procesado',
-      message: 'Se ha procesado un desembolso de \$500.000',
-      time: 'Hace 15 minutos',
-      type: NotificationType.info,
-      isRead: true,
-    ),
-    AdminNotificationData(
-      id: '3',
-      title: 'Alerta de sistema',
-      message: 'Uso de memoria alto en el servidor',
-      time: 'Hace 1 hora',
-      type: NotificationType.warning,
-      isRead: true,
-    ),
-  ];
+  static final List<AdminNotificationData> _notifications = [];  // Iniciar vacío - cargar desde backend
 
   static List<AdminNotificationData> get notifications => _notifications;
 
@@ -73,6 +40,10 @@ class AdminNotificationProvider {
     for (var notification in _notifications) {
       notification.isRead = true;
     }
+  }
+
+  static void clearNotifications() {
+    _notifications.clear();
   }
 }
 
