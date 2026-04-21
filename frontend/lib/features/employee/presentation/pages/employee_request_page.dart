@@ -168,19 +168,25 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
     
+    // Guardar referencias antes del await
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final advanceProvider = context.read<AdvanceProvider>();
+    
     try {
-      final advanceProvider = context.read<AdvanceProvider>();
       final success = await advanceProvider.createAdvance(
         amount: _amount,
         reason: 'Adelanto de nómina por ${_days.toInt()} días',
       );
       
+      if (!mounted) return;
+      
       // Cerrar loading
-      Navigator.pop(context);
+      navigator.pop();
       
       if (success) {
         // Mostrar éxito
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           const SnackBar(
             content: Text('Solicitud enviada exitosamente'),
             backgroundColor: Color(0xFF059669),
@@ -188,9 +194,9 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         );
         
         // Navegar al historial o inicio
-        Navigator.pop(context);
+        navigator.pop();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text(advanceProvider.errorMessage ?? 'Error al enviar solicitud'),
             backgroundColor: const Color(0xFFDC2626),
@@ -198,10 +204,12 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         );
       }
     } catch (e) {
-      // Cerrar loading
-      Navigator.pop(context);
+      if (!mounted) return;
       
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Cerrar loading
+      navigator.pop();
+      
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: const Color(0xFFDC2626),
@@ -580,62 +588,6 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
 ); // Cierra Consumer
   }
 
-  Widget _buildInfoCard({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSectionCard({required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -644,7 +596,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

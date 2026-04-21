@@ -47,7 +47,7 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
     final totalEmployees = _employees.length;
     final totalNomina = _employees.fold<int>(0, (sum, e) => sum + (e['salary'] as int));
     final totalAdvanceMonth = _employees.fold<int>(0, (sum, e) => sum + (e['totalMonth'] as int));
-    final usedLimit = _employees.fold<int>(0, (sum, e) => sum + (e['advanceUsed'] as int));
+    final _ = _employees.fold<int>(0, (sum, e) => sum + (e['advanceUsed'] as int));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -209,7 +209,7 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: textColor.withOpacity(0.9),
+              color: textColor.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 8),

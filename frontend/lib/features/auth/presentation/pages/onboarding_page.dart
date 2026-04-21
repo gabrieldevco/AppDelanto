@@ -49,6 +49,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } else {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('hasSeenOnboarding', true);
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -59,6 +60,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void _skip() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasSeenOnboarding', true);
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -177,7 +179,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: data.primaryColor.withOpacity(0.3),
+                  color: data.primaryColor.withValues(alpha: 0.3),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),
@@ -193,7 +195,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Icon(
             data.secondaryIcon,
             size: 64,
-            color: data.primaryColor.withOpacity(0.8),
+            color: data.primaryColor.withValues(alpha: 0.8),
           ),
           const SizedBox(height: 32),
           Text(

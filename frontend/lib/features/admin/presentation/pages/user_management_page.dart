@@ -270,7 +270,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
           ),
         ],
@@ -516,7 +516,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isVerified ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+        color: isVerified ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -549,11 +549,13 @@ class _UserManagementPageState extends State<UserManagementPage> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo abrir el documento')),
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -564,7 +566,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
     final adminProvider = context.read<AdminProvider>();
     final success = await adminProvider.verifyCompany(companyId);
     
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Empresa verificada exitosamente'),

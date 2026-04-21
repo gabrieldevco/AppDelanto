@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/employee_bottom_nav.dart';
 import 'employee_home_page.dart';
 import 'employee_request_page.dart';
 import 'employee_history_page.dart';
@@ -13,7 +12,7 @@ class EmployeeMainPage extends StatefulWidget {
 
 class _EmployeeMainPageState extends State<EmployeeMainPage>
     with SingleTickerProviderStateMixin {
-  int _currentIndex = 0;
+  final int _currentIndex = 0;
 
   final List<Widget> _pages = [
     const EmployeeHomePage(),

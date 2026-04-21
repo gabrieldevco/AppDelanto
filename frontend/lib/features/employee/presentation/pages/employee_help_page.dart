@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_notifications_drawer.dart';
-import 'employee_profile_page.dart';
-import '../providers/notification_provider.dart';
-import 'employee_main_page.dart';
 
 class EmployeeHelpPage extends StatefulWidget {
   const EmployeeHelpPage({super.key});
@@ -248,7 +244,7 @@ class _EmployeeHelpPageState extends State<EmployeeHelpPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

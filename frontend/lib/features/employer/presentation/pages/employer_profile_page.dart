@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/employer_header.dart';
 import '../widgets/employer_notifications_drawer.dart';
 
@@ -70,7 +69,7 @@ class _EmployerProfilePageState extends State<EmployerProfilePage>
                       indicator: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
                       ),
                       dividerColor: Colors.transparent,
                       labelColor: const Color(0xFF111827),
@@ -329,74 +328,6 @@ class _EmployerProfilePageState extends State<EmployerProfilePage>
           style: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
         ),
       ],
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(color: Color(0xFFFEE2E2), shape: BoxShape.circle),
-                child: const Icon(Icons.logout, color: Color(0xFFDC2626), size: 24),
-              ),
-              const SizedBox(height: 12),
-              const Text('Cerrar Sesión', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
-              const SizedBox(height: 8),
-              const Text('¿Estás seguro?', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF374151),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      child: const Text('Cancelar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => LoginPage()),
-                          (route) => false,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFDC2626),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      child: const Text('Sí, salir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

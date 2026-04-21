@@ -51,7 +51,7 @@ class AdminBottomNav extends StatelessWidget {
 
     return BottomAppBar(
       elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       height: navHeight,
       color: Colors.white,
       padding: EdgeInsets.zero,
@@ -107,7 +107,7 @@ class AdminBottomNav extends StatelessWidget {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: item.color.withOpacity(0.35),
+                                    color: item.color.withValues(alpha: 0.35),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),

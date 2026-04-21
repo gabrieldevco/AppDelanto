@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/api_service.dart';
-import '../../../employee/presentation/pages/employee_main_page.dart';
-import '../../../employer/presentation/pages/employer_main_page.dart';
-import '../../../admin/presentation/pages/admin_main_page.dart';
 import '../providers/auth_provider.dart';
 import 'login_page.dart';
 
@@ -110,7 +107,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1150,6 +1147,7 @@ class _RegisterPageState extends State<RegisterPage> {
         }
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al seleccionar archivo: $e')),
       );

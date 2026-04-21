@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/api_service.dart';
-import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/data/services/auth_service.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_notifications_drawer.dart';
-import 'employee_help_page.dart';
-import 'employee_main_page.dart';
 
 class EmployeeProfilePage extends StatefulWidget {
   const EmployeeProfilePage({super.key});
@@ -193,7 +190,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -232,7 +229,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -412,7 +409,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -973,6 +970,10 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
     
+    // Guardar referencias antes del await
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
     try {
       final authService = context.read<AuthService>();
       await authService.changePassword(
@@ -980,25 +981,29 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
         newPassword: newPassword,
       );
       
+      if (!mounted) return;
+      
       // Cerrar loading
-      Navigator.pop(context);
+      navigator.pop();
       
       // Limpiar campos
       _currentPassController.clear();
       _newPassController.clear();
       _confirmPassController.clear();
       
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text('Contraseña actualizada exitosamente'),
           backgroundColor: Color(0xFF059669),
         ),
       );
     } catch (e) {
-      // Cerrar loading
-      Navigator.pop(context);
+      if (!mounted) return;
       
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Cerrar loading
+      navigator.pop();
+      
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: const Color(0xFFDC2626),

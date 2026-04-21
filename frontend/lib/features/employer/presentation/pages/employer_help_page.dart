@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/employer_header.dart';
 import '../widgets/employer_notifications_drawer.dart';
-import 'employer_main_page.dart';
 
 class EmployerHelpPage extends StatefulWidget {
   const EmployerHelpPage({super.key});

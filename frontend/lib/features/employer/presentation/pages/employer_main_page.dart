@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/employer_header.dart';
 import '../widgets/employer_bottom_nav.dart';
 import '../widgets/employer_notifications_drawer.dart';
@@ -13,8 +12,6 @@ class EmployerMainPage extends StatefulWidget {
 }
 
 class _EmployerMainPageState extends State<EmployerMainPage> {
-  int _currentIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,7 +168,7 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -255,7 +252,7 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(

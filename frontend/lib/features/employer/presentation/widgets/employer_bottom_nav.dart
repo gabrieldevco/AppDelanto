@@ -36,7 +36,7 @@ class EmployerBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return BottomAppBar(
       elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       height: 80,
       color: Colors.white,
       child: Row(
@@ -96,7 +96,7 @@ class EmployerBottomNav extends StatelessWidget {
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: item.color.withOpacity(0.4),
+                                        color: item.color.withValues(alpha: 0.4),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),

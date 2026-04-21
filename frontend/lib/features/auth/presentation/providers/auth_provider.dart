@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/auth_service.dart';
 import '../../../../core/services/api_service.dart';
-import '../../../notifications/presentation/providers/notification_provider.dart' as main_notifications;
 import '../../../employer/presentation/widgets/employer_notifications_drawer.dart';
 import '../../../admin/presentation/widgets/admin_notifications_drawer.dart';
 

@@ -5,7 +5,6 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../pages/employee_help_page.dart';
 import '../pages/employee_profile_page.dart';
-import '../pages/employee_main_page.dart';
 
 class EmployeeHeader extends StatefulWidget {
   final VoidCallback? onNotificationTap;
@@ -45,7 +44,7 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),

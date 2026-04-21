@@ -66,6 +66,9 @@ class _AppInitializerState extends State<AppInitializer> {
   }
 
   Future<void> _initializeApp() async {
+    // Guardar referencias antes de los awaits
+    final authProvider = context.read<AuthProvider>();
+    
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
     
@@ -80,7 +83,6 @@ class _AppInitializerState extends State<AppInitializer> {
     }
 
     // Verificar sesión
-    final authProvider = context.read<AuthProvider>();
     await authProvider.initialize();
 
     if (!mounted) return;

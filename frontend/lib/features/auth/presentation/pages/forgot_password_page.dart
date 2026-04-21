@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -10,7 +9,6 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _emailController = TextEditingController();
-  bool _codeSent = false;
 
   @override
   void dispose() {
@@ -19,9 +17,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   void _sendCode() {
-    setState(() {
-      _codeSent = true;
-    });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Código enviado a tu correo'),
@@ -72,7 +67,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 4),
                     ),

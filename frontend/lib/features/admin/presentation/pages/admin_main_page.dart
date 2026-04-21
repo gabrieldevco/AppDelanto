@@ -154,7 +154,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
             Text(
               subtitle,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 fontSize: 12,
               ),
             ),
@@ -422,13 +422,6 @@ class _AdminMainPageState extends State<AdminMainPage> {
     return number.toStringAsFixed(0);
   }
 
-  String _formatNumber(double number) {
-    return number.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
-  }
-
   Widget _buildCountCard({
     required String title,
     required String count,
@@ -447,7 +440,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -493,7 +486,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB).withOpacity(0.1),
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -534,7 +527,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF059669).withOpacity(0.1),
+                  color: const Color(0xFF059669).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(

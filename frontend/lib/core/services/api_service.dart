@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -106,7 +105,7 @@ class ApiService {
         queryParameters: queryParameters,
       );
       return _handleResponse(response);
-    } on SocketException catch (e) {
+    } on SocketException catch (_) {
       throw ApiException(
         message: 'No hay conexión a internet. Verifica tu conexión.',
         statusCode: null,
@@ -127,7 +126,7 @@ class ApiService {
         options: options,
       );
       return _handleResponse(response);
-    } on SocketException catch (e) {
+    } on SocketException catch (_) {
       throw ApiException(
         message: 'No hay conexión a internet. Verifica tu conexión.',
         statusCode: null,
@@ -147,7 +146,7 @@ class ApiService {
         data: data,
       );
       return _handleResponse(response);
-    } on SocketException catch (e) {
+    } on SocketException catch (_) {
       throw ApiException(
         message: 'No hay conexión a internet. Verifica tu conexión.',
         statusCode: null,
@@ -167,7 +166,7 @@ class ApiService {
         data: data,
       );
       return _handleResponse(response);
-    } on SocketException catch (e) {
+    } on SocketException catch (_) {
       throw ApiException(
         message: 'No hay conexión a internet. Verifica tu conexión.',
         statusCode: null,
@@ -187,7 +186,7 @@ class ApiService {
         data: data,
       );
       return _handleResponse(response);
-    } on SocketException catch (e) {
+    } on SocketException catch (_) {
       throw ApiException(
         message: 'No hay conexión a internet. Verifica tu conexión.',
         statusCode: null,

@@ -73,7 +73,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                         borderRadius: BorderRadius.circular(25),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -633,7 +633,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE).withOpacity(0.3),
+                    color: const Color(0xFFDBEAFE).withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFDBEAFE)),
                   ),
@@ -670,7 +670,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3E8FF).withOpacity(0.3),
+                    color: const Color(0xFFF3E8FF).withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFF3E8FF)),
                   ),
@@ -781,7 +781,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: bgColor.withOpacity(0.3),
+        color: bgColor.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: bgColor),
       ),
@@ -1008,31 +1008,5 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
         ],
       ),
     );
-  }
-}
-
-class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar tabBar;
-
-  _StickyTabBarDelegate(this.tabBar);
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: const Color(0xFFF8FAFC),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: tabBar,
-    );
-  }
-
-  @override
-  double get maxExtent => tabBar.preferredSize.height + 20;
-
-  @override
-  double get minExtent => tabBar.preferredSize.height + 20;
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
-    return false;
   }
 }

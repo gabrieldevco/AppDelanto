@@ -84,7 +84,6 @@ class _AdminNotificationsDrawerState extends State<AdminNotificationsDrawer> {
         return const Color(0xFFF59E0B);
       case NotificationType.error:
         return const Color(0xFFDC2626);
-      case NotificationType.info:
       default:
         return const Color(0xFF2563EB);
     }
@@ -98,7 +97,6 @@ class _AdminNotificationsDrawerState extends State<AdminNotificationsDrawer> {
         return Icons.warning;
       case NotificationType.error:
         return Icons.error;
-      case NotificationType.info:
       default:
         return Icons.info;
     }
@@ -259,7 +257,7 @@ class _AdminNotificationsDrawerState extends State<AdminNotificationsDrawer> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: typeColor.withOpacity(0.1),
+                            color: typeColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(

@@ -11,10 +11,6 @@ class AdminReportsPage extends StatefulWidget {
 }
 
 class _AdminReportsPageState extends State<AdminReportsPage> {
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _endDate = DateTime.now();
-  String _selectedEmployer = 'Todos los empleadores';
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -169,7 +165,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
+                              color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
@@ -200,7 +196,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
+                              color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
@@ -651,7 +647,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3E8FF).withOpacity(0.3),
+        color: const Color(0xFFF3E8FF).withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

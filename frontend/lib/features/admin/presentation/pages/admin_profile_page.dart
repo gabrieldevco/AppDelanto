@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../auth/presentation/pages/login_page.dart';
 import '../widgets/admin_header.dart';
 import '../widgets/admin_notifications_drawer.dart';
 
@@ -87,7 +86,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
                         borderRadius: BorderRadius.circular(25),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -156,7 +155,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -332,7 +331,7 @@ class _AdminProfilePageState extends State<AdminProfilePage>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
