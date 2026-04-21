@@ -62,7 +62,8 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
         _availableCompanies = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      // Error silencioso
+      // Mostrar error en consola para depuración
+      debugPrint('Error cargando empresas: $e');
     } finally {
       setState(() => _loadingCompanies = false);
     }
@@ -266,12 +267,16 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                         ],
                       ),
                     ),
-                    // Botón Editar
+                    // Botón Editar/Guardar
                     OutlinedButton.icon(
                       onPressed: () {
-                        setState(() {
-                          _isEditing = !_isEditing;
-                        });
+                        if (_isEditing) {
+                          _saveProfile();
+                        } else {
+                          setState(() {
+                            _isEditing = true;
+                          });
+                        }
                       },
                       icon: Icon(
                         _isEditing ? Icons.check : Icons.edit,
@@ -905,6 +910,62 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
         );
       },
     );
+  }
+
+  Future<void> _saveProfile() async {
+    // Verificar si se seleccionó una empresa
+    if (_selectedCompanyId != null) {
+      // Mostrar loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      
+      try {
+        // Llamar al endpoint para unirse a la empresa
+        await apiService.post('/api/employee-profiles/join-company/', data: {
+          'company_id': _selectedCompanyId,
+        });
+        
+        if (!mounted) return;
+        
+        // Cerrar loading
+        Navigator.pop(context);
+        
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Te has unido a la empresa exitosamente'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
+        
+        // Refrescar el perfil para actualizar la empresa
+        await context.read<AuthProvider>().refreshProfile();
+        
+        setState(() {
+          _isEditing = false;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        
+        // Cerrar loading
+        Navigator.pop(context);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al unirse a la empresa: ${e.toString()}'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    } else {
+      // Si no hay empresa seleccionada, solo salir del modo edición
+      setState(() {
+        _isEditing = false;
+      });
+    }
   }
 
   Future<void> _updatePassword(BuildContext context) async {

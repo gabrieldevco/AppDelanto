@@ -133,7 +133,8 @@ class _RegisterPageState extends State<RegisterPage> {
         final isSmallScreen = constraints.maxWidth < 400;
         final barMargin = isSmallScreen ? 4.0 : 8.0;
         final isEmployer = step1.role == 'employer';
-        final totalSteps = isEmployer ? 2 : 3;
+        final isAdmin = step1.role == 'admin';
+        final totalSteps = (isEmployer || isAdmin) ? 2 : 3;
         
         return Column(
           children: [
@@ -171,7 +172,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 _buildStepIndicator(2, 'Paso 2', totalSteps: totalSteps),
                 // Solo mostrar paso 3 para empleados
-                if (!isEmployer) ...[
+                if (!isEmployer && !isAdmin) ...[
                   Flexible(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -412,6 +413,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget _buildStep2() {
     final isEmployee = step1.role == 'employee';
     final isEmployer = step1.role == 'employer';
+    final isAdmin = step1.role == 'admin';
 
     return Form(
       key: _formKey2,
@@ -523,7 +525,7 @@ class _RegisterPageState extends State<RegisterPage> {
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: isEmployer ? _registerEmployer : _goToStep3,
+              onPressed: isEmployer ? _registerEmployer : (isAdmin ? _registerAdmin : _goToStep3),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
@@ -536,7 +538,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    isEmployer ? 'Crear Cuenta' : 'Siguiente →',
+                    isEmployer || isAdmin ? 'Crear Cuenta' : 'Siguiente →',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -603,6 +605,55 @@ class _RegisterPageState extends State<RegisterPage> {
       companyName: step2.employerCompanyName,
       companyId: null,
       chamberOfCommerceFile: step2.chamberOfCommerceFile,
+      bankAccount: null,
+      bankName: null,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registro exitoso. Por favor inicia sesión.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage ?? 'Error al registrar'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Registro para administradores (sin paso 3)
+  Future<void> _registerAdmin() async {
+    if (!_formKey2.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.register(
+      username: step1.email.split('@').first,
+      email: step1.email,
+      password: step2.password,
+      firstName: step1.fullName.split(' ').first,
+      lastName: step1.fullName.split(' ').skip(1).join(' '),
+      role: step1.role,
+      phone: null,
+      documentNumber: step1.documentNumber,
+      salary: null,
+      businessName: null,
+      companyName: null,
+      companyId: null,
+      chamberOfCommerceFile: null,
       bankAccount: null,
       bankName: null,
     );
@@ -1131,7 +1182,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _pickPDF() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         allowMultiple: false,

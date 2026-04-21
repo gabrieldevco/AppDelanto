@@ -35,14 +35,14 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const AdminHeader(),
+            const SizedBox(height: 24),
             // Header section (fijo)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const AdminHeader(),
-                  const SizedBox(height: 24),
                   const Text(
                     'Configuración',
                     style: TextStyle(
@@ -114,7 +114,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
           ],
         ),
       ),
-      bottomNavigationBar: const AdminBottomNav(currentIndex: 3),
+      bottomNavigationBar: const AdminBottomNav(currentIndex: 4),
     );
   }
 

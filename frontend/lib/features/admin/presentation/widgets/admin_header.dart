@@ -23,23 +23,33 @@ class _AdminHeaderState extends State<AdminHeader> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2563EB),
-              borderRadius: BorderRadius.circular(12),
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: Color(0xFF2563EB),
+              borderRadius: BorderRadius.all(Radius.circular(10)),
             ),
             child: const Icon(
               Icons.attach_money,
               color: Colors.white,
-              size: 24,
+              size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,57 +65,14 @@ class _AdminHeaderState extends State<AdminHeader> {
                 const Text(
                   'Administrador',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: Color(0xFF6B7280),
                   ),
                 ),
               ],
             ),
           ),
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {
-                  Scaffold.of(context).openEndDrawer();
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    Future.delayed(const Duration(milliseconds: 100), () {
-                      if (mounted) _refresh();
-                    });
-                  });
-                },
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  color: Color(0xFF6B7280),
-                  size: 24,
-                ),
-              ),
-              if (_unreadCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDC2626),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      _unreadCount > 9 ? '9+' : '$_unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          _buildNotificationIcon(context),
           IconButton(
             onPressed: () {
               Navigator.push(
@@ -116,8 +83,10 @@ class _AdminHeaderState extends State<AdminHeader> {
             icon: const Icon(
               Icons.help_outline,
               color: Color(0xFF6B7280),
-              size: 24,
+              size: 20,
             ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
           IconButton(
             onPressed: () {
@@ -129,8 +98,10 @@ class _AdminHeaderState extends State<AdminHeader> {
             icon: const Icon(
               Icons.person_outline,
               color: Color(0xFF6B7280),
-              size: 24,
+              size: 20,
             ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
           IconButton(
             onPressed: () {
@@ -139,11 +110,63 @@ class _AdminHeaderState extends State<AdminHeader> {
             icon: const Icon(
               Icons.logout,
               color: Color(0xFFDC2626),
-              size: 24,
+              size: 20,
             ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildNotificationIcon(BuildContext context) {
+    return Stack(
+      children: [
+        IconButton(
+          onPressed: () {
+            Scaffold.of(context).openEndDrawer();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (mounted) _refresh();
+              });
+            });
+          },
+          icon: const Icon(
+            Icons.notifications_outlined,
+            color: Color(0xFF6B7280),
+            size: 20,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
+        if (_unreadCount > 0)
+          Positioned(
+            right: 2,
+            top: 2,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Color(0xFFDC2626),
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Center(
+                child: Text(
+                  _unreadCount > 9 ? '9+' : '$_unreadCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

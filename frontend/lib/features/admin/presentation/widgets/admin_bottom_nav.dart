@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../pages/admin_main_page.dart';
+import '../pages/admin_user_management_page.dart';
 import '../pages/admin_disbursements_page.dart';
 import '../pages/admin_reports_page.dart';
 import '../pages/admin_settings_page.dart';
@@ -17,6 +18,12 @@ class AdminBottomNav extends StatelessWidget {
       icon: Icons.home_outlined,
       activeIcon: Icons.home,
       label: 'Inicio',
+      color: Color(0xFF2563EB),
+    ),
+    NavItemData(
+      icon: Icons.people_outlined,
+      activeIcon: Icons.people,
+      label: 'Usuarios',
       color: Color(0xFF2563EB),
     ),
     NavItemData(
@@ -62,7 +69,7 @@ class AdminBottomNav extends StatelessWidget {
           final item = _navItems[index];
 
           return Expanded(
-            child: GestureDetector(
+            child: InkWell(
               onTap: () {
                 if (!isSelected) {
                   if (index == 0) {
@@ -73,14 +80,19 @@ class AdminBottomNav extends StatelessWidget {
                   } else if (index == 1) {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (_) => const AdminDisbursementsPage()),
+                      MaterialPageRoute(builder: (_) => const AdminUserManagementPage()),
                     );
                   } else if (index == 2) {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (_) => const AdminReportsPage()),
+                      MaterialPageRoute(builder: (_) => const AdminDisbursementsPage()),
                     );
                   } else if (index == 3) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdminReportsPage()),
+                    );
+                  } else if (index == 4) {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const AdminSettingsPage()),
@@ -88,56 +100,62 @@ class AdminBottomNav extends StatelessWidget {
                   }
                 }
               },
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                        width: isSelected ? activeIconSize + 12 : 0,
-                        height: isSelected ? activeIconSize + 8 : 0,
-                        decoration: BoxDecoration(
-                          color: isSelected ? item.color : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: item.color.withValues(alpha: 0.35),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ]
-                              : null,
-                        ),
+              child: Container(
+                height: navHeight,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: activeIconSize + 8,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOut,
+                            width: isSelected ? activeIconSize + 12 : 0,
+                            height: isSelected ? activeIconSize + 8 : 0,
+                            decoration: BoxDecoration(
+                              color: isSelected ? item.color : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: item.color.withValues(alpha: 0.35),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                          AnimatedScale(
+                            scale: isSelected ? 1.0 : 0.85,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              isSelected ? item.activeIcon : item.icon,
+                              color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                              size: isSelected ? activeIconSize : iconSize,
+                            ),
+                          ),
+                        ],
                       ),
-                      AnimatedScale(
-                        scale: isSelected ? 1.0 : 0.85,
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          isSelected ? item.activeIcon : item.icon,
-                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                          size: isSelected ? activeIconSize : iconSize,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: TextStyle(
-                      color: isSelected ? item.color : const Color(0xFF94A3B8),
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: isSelected ? activeFontSize : fontSize,
-                      letterSpacing: isSelected ? 0.2 : 0,
                     ),
-                    child: Text(item.label),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: TextStyle(
+                        color: isSelected ? item.color : const Color(0xFF94A3B8),
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: isSelected ? activeFontSize : fontSize,
+                        letterSpacing: isSelected ? 0.2 : 0,
+                      ),
+                      child: Text(item.label),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

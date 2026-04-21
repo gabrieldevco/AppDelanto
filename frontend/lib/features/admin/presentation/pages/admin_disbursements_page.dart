@@ -33,14 +33,19 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
       endDrawer: const AdminNotificationsDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
+          padding: const EdgeInsets.only(bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const AdminHeader(),
               const SizedBox(height: 24),
-              const Text(
-                'Desembolsos',
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Desembolsos',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -103,11 +108,14 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
                   ],
                 ),
               ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: const AdminBottomNav(currentIndex: 1),
+      bottomNavigationBar: const AdminBottomNav(currentIndex: 2),
     );
   }
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../widgets/admin_header.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/admin_notifications_drawer.dart';
-import '../widgets/admin_nav_drawer.dart';
 
 class AdminMainPage extends StatefulWidget {
   const AdminMainPage({super.key});
@@ -17,24 +16,19 @@ class _AdminMainPageState extends State<AdminMainPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       endDrawer: const AdminNotificationsDrawer(),
-      drawer: const AdminNavDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
+          padding: const EdgeInsets.only(bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header con botón de menú
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu, color: Color(0xFF111827)),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                  ),
-                  const Expanded(child: AdminHeader()),
-                ],
-              ),
+              const AdminHeader(),
               const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
               const Text(
                 'Panel Administrador',
                 style: TextStyle(
@@ -103,6 +97,9 @@ class _AdminMainPageState extends State<AdminMainPage> {
               const SizedBox(height: 16),
               _buildInfoCard(),
               const SizedBox(height: 140),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

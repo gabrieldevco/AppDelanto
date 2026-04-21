@@ -18,14 +18,19 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
       endDrawer: const AdminNotificationsDrawer(),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
+          padding: const EdgeInsets.only(bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const AdminHeader(),
               const SizedBox(height: 24),
-              const Text(
-                'Reportes',
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Reportes',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -549,11 +554,14 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                 ],
               ),
               const SizedBox(height: 60),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: const AdminBottomNav(currentIndex: 2),
+      bottomNavigationBar: const AdminBottomNav(currentIndex: 3),
     );
   }
 
