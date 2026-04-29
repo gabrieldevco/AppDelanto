@@ -17,12 +17,25 @@ class _EmployerHeaderState extends State<EmployerHeader> {
   int get _unreadCount => EmployerNotificationProvider.unreadCount;
 
   @override
+  void initState() {
+    super.initState();
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      await EmployerNotificationProvider.loadUnreadCount();
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.user;
         final companyName = user?.company?.name ?? 'Mi Empresa';
-        
+
         return Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           decoration: BoxDecoration(
@@ -94,7 +107,9 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const EmployerProfilePage()),
+                    MaterialPageRoute(
+                      builder: (_) => const EmployerProfilePage(),
+                    ),
                   );
                 },
               ),
@@ -122,6 +137,7 @@ class _EmployerHeaderState extends State<EmployerHeader> {
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           onPressed: () {
             Scaffold.of(context).openEndDrawer();
+            _loadUnreadCount();
           },
         ),
         if (_unreadCount > 0)
@@ -134,10 +150,7 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                 color: Color(0xFFDC2626),
                 shape: BoxShape.circle,
               ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               child: Center(
                 child: Text(
                   _unreadCount > 9 ? '9+' : '$_unreadCount',
@@ -155,10 +168,11 @@ class _EmployerHeaderState extends State<EmployerHeader> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final pageContext = context;
     showDialog(
-      context: context,
+      context: pageContext,
       barrierDismissible: false,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -174,7 +188,11 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                   color: Color(0xFFFEE2E2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.logout, color: Color(0xFFDC2626), size: 24),
+                child: const Icon(
+                  Icons.logout,
+                  color: Color(0xFFDC2626),
+                  size: 24,
+                ),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -196,16 +214,21 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(dialogContext),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF374151),
                         side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       child: const Text(
                         'Cancelar',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -214,11 +237,19 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                     child: ElevatedButton(
                       onPressed: () async {
                         // Cerrar sesión en backend
-                        await context.read<AuthProvider>().logout();
+                        final navigator = Navigator.of(
+                          pageContext,
+                          rootNavigator: true,
+                        );
+                        final authProvider = pageContext.read<AuthProvider>();
+                        Navigator.pop(dialogContext);
+                        await authProvider.logout();
                         // Navegar al login (el diálogo se cierra automáticamente)
-                        if (context.mounted) {
-                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const LoginPage()),
+                        if (navigator.mounted) {
+                          navigator.pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
                             (route) => false,
                           );
                         }
@@ -227,12 +258,17 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                         backgroundColor: const Color(0xFFDC2626),
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       child: const Text(
                         'Sí, salir',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

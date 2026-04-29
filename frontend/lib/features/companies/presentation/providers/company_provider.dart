@@ -7,7 +7,7 @@ enum CompanyStatus { initial, loading, loaded, submitting, success, error }
 
 class CompanyProvider extends ChangeNotifier {
   final CompanyService _companyService;
-  
+
   CompanyStatus _status = CompanyStatus.initial;
   CompanyModel? _myCompany;
   List<EmployeeModel> _employees = [];
@@ -20,8 +20,8 @@ class CompanyProvider extends ChangeNotifier {
   CompanyStatus get status => _status;
   CompanyModel? get myCompany => _myCompany;
   List<EmployeeModel> get employees => _employees;
-  List<EmployeeModel> get activeEmployees => 
-    _employees.where((e) => e.isActive).toList();
+  List<EmployeeModel> get activeEmployees =>
+      _employees.where((e) => e.isActive).toList();
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get summary => _summary;
   bool get isLoading => _status == CompanyStatus.loading;
@@ -54,6 +54,8 @@ class CompanyProvider extends ChangeNotifier {
     String? email,
     double? maxAdvancePercentage,
     double? advanceFeePercentage,
+    String? bankAccount,
+    String? bankName,
   }) async {
     _status = CompanyStatus.submitting;
     _errorMessage = null;
@@ -69,8 +71,10 @@ class CompanyProvider extends ChangeNotifier {
         email: email,
         maxAdvancePercentage: maxAdvancePercentage,
         advanceFeePercentage: advanceFeePercentage,
+        bankAccount: bankAccount,
+        bankName: bankName,
       );
-      
+
       _status = CompanyStatus.success;
       notifyListeners();
       return true;
@@ -92,6 +96,8 @@ class CompanyProvider extends ChangeNotifier {
     String? email,
     double? maxAdvancePercentage,
     double? advanceFeePercentage,
+    String? bankAccount,
+    String? bankName,
   }) async {
     if (_myCompany == null) return false;
 
@@ -109,8 +115,10 @@ class CompanyProvider extends ChangeNotifier {
         email: email,
         maxAdvancePercentage: maxAdvancePercentage,
         advanceFeePercentage: advanceFeePercentage,
+        bankAccount: bankAccount,
+        bankName: bankName,
       );
-      
+
       _status = CompanyStatus.success;
       notifyListeners();
       return true;
@@ -173,7 +181,7 @@ class CompanyProvider extends ChangeNotifier {
         documentNumber: documentNumber,
         hireDate: hireDate,
       );
-      
+
       _employees.add(newEmployee);
       _status = CompanyStatus.success;
       notifyListeners();
@@ -207,7 +215,7 @@ class CompanyProvider extends ChangeNotifier {
         bankName: bankName,
         isActive: isActive,
       );
-      
+
       final index = _employees.indexWhere((e) => e.id == employeeId);
       if (index != -1) {
         _employees[index] = updated;
@@ -269,7 +277,7 @@ class CompanyProvider extends ChangeNotifier {
         minAdvanceAmount: minAdvanceAmount,
         maxAdvanceAmount: maxAdvanceAmount,
       );
-      
+
       _myCompany = _myCompany!.copyWith(settings: settings);
       notifyListeners();
       return true;

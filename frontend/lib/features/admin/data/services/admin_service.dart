@@ -18,7 +18,18 @@ class AdminService {
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      return response as List<dynamic>;
+      if (response is List) {
+        return response;
+      }
+      if (response is Map<String, dynamic>) {
+        final results =
+            response['results'] ?? response['data'] ?? response['users'];
+        if (results is List) {
+          return results;
+        }
+      }
+
+      return <dynamic>[];
     } catch (e) {
       throw Exception('Error al obtener usuarios: $e');
     }
@@ -45,5 +56,36 @@ class AdminService {
     } catch (e) {
       throw Exception('Error al obtener estadísticas: $e');
     }
+  }
+
+  Future<Map<String, dynamic>> getReports({
+    required String startDate,
+    required String endDate,
+    int? employerId,
+  }) async {
+    final params = <String, dynamic>{
+      'start_date': startDate,
+      'end_date': endDate,
+    };
+    if (employerId != null) params['employer_id'] = employerId;
+
+    final response = await _apiService.get(
+      ApiConstants.adminReports,
+      queryParameters: params,
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getSettings() async {
+    final response = await _apiService.get(ApiConstants.adminSettings);
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateSettings(Map<String, dynamic> data) async {
+    final response = await _apiService.patch(
+      ApiConstants.adminSettings,
+      data: data,
+    );
+    return response as Map<String, dynamic>;
   }
 }

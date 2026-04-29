@@ -7,13 +7,14 @@ enum AdvanceStatus { initial, loading, loaded, submitting, success, error }
 
 class AdvanceProvider extends ChangeNotifier {
   final AdvanceService _advanceService;
-  
+
   AdvanceStatus _status = AdvanceStatus.initial;
   List<AdvanceModel> _advances = [];
   List<AdvanceModel> _pendingAdvances = [];
   AdvanceModel? _selectedAdvance;
   String? _errorMessage;
   Map<String, dynamic>? _summary;
+  Map<String, dynamic>? _calculation;
 
   AdvanceProvider() : _advanceService = AdvanceService(apiService);
 
@@ -21,16 +22,18 @@ class AdvanceProvider extends ChangeNotifier {
   AdvanceStatus get status => _status;
   List<AdvanceModel> get advances => _advances;
   List<AdvanceModel> get pendingAdvances => _pendingAdvances;
-  List<AdvanceModel> get myPendingAdvances => 
-    _advances.where((a) => a.isPending).toList();
-  List<AdvanceModel> get myApprovedAdvances => 
-    _advances.where((a) => a.isApproved || a.isDisbursed).toList();
-  List<AdvanceModel> get myHistory => 
-    _advances.where((a) => a.isRecovered || a.isRejected || a.isCancelled).toList();
-  
+  List<AdvanceModel> get myPendingAdvances =>
+      _advances.where((a) => a.isPending).toList();
+  List<AdvanceModel> get myApprovedAdvances =>
+      _advances.where((a) => a.isApproved || a.isDisbursed).toList();
+  List<AdvanceModel> get myHistory => _advances
+      .where((a) => a.isRecovered || a.isRejected || a.isCancelled)
+      .toList();
+
   AdvanceModel? get selectedAdvance => _selectedAdvance;
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get summary => _summary;
+  Map<String, dynamic>? get calculation => _calculation;
   bool get isLoading => _status == AdvanceStatus.loading;
   bool get isSubmitting => _status == AdvanceStatus.submitting;
 
@@ -70,6 +73,7 @@ class AdvanceProvider extends ChangeNotifier {
   Future<bool> createAdvance({
     required double amount,
     required String reason,
+    int? days,
   }) async {
     _status = AdvanceStatus.submitting;
     _errorMessage = null;
@@ -79,8 +83,9 @@ class AdvanceProvider extends ChangeNotifier {
       final newAdvance = await _advanceService.createAdvance(
         amount: amount,
         reason: reason,
+        days: days,
       );
-      
+
       _advances.insert(0, newAdvance);
       _status = AdvanceStatus.success;
       notifyListeners();
@@ -93,6 +98,22 @@ class AdvanceProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> calculateAdvance({
+    required double amount,
+    required int days,
+  }) async {
+    try {
+      _calculation = await _advanceService.calculateAdvance(
+        amount: amount,
+        days: days,
+      );
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Error al calcular adelanto: ${e.toString()}';
+      notifyListeners();
+    }
+  }
+
   // Aprobar adelanto (empleador/admin)
   Future<bool> approveAdvance(int advanceId) async {
     _status = AdvanceStatus.submitting;
@@ -100,14 +121,14 @@ class AdvanceProvider extends ChangeNotifier {
 
     try {
       final updated = await _advanceService.approveAdvance(advanceId);
-      
+
       // Actualizar en la lista de pendientes
       final index = _pendingAdvances.indexWhere((a) => a.id == advanceId);
       if (index != -1) {
         _pendingAdvances[index] = updated;
         _pendingAdvances.removeAt(index);
       }
-      
+
       _status = AdvanceStatus.success;
       notifyListeners();
       return true;
@@ -126,12 +147,12 @@ class AdvanceProvider extends ChangeNotifier {
 
     try {
       await _advanceService.rejectAdvance(advanceId, reason: reason);
-      
+
       final index = _pendingAdvances.indexWhere((a) => a.id == advanceId);
       if (index != -1) {
         _pendingAdvances.removeAt(index);
       }
-      
+
       _status = AdvanceStatus.success;
       notifyListeners();
       return true;
@@ -144,7 +165,10 @@ class AdvanceProvider extends ChangeNotifier {
   }
 
   // Marcar como desembolsado (empleador/admin)
-  Future<bool> disburseAdvance(int advanceId, {required String reference}) async {
+  Future<bool> disburseAdvance(
+    int advanceId, {
+    required String reference,
+  }) async {
     _status = AdvanceStatus.submitting;
     notifyListeners();
 
@@ -153,7 +177,7 @@ class AdvanceProvider extends ChangeNotifier {
         advanceId,
         reference: reference,
       );
-      
+
       _updateAdvanceInList(updated);
       _status = AdvanceStatus.success;
       notifyListeners();
@@ -173,7 +197,7 @@ class AdvanceProvider extends ChangeNotifier {
 
     try {
       final updated = await _advanceService.cancelAdvance(advanceId);
-      
+
       _updateAdvanceInList(updated);
       _status = AdvanceStatus.success;
       notifyListeners();
@@ -213,12 +237,12 @@ class AdvanceProvider extends ChangeNotifier {
     if (index != -1) {
       _advances[index] = updated;
     }
-    
+
     final pendingIndex = _pendingAdvances.indexWhere((a) => a.id == updated.id);
     if (pendingIndex != -1) {
       _pendingAdvances[pendingIndex] = updated;
     }
-    
+
     if (_selectedAdvance?.id == updated.id) {
       _selectedAdvance = updated;
     }

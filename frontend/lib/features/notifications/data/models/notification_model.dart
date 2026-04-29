@@ -26,7 +26,7 @@ class NotificationModel {
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json['id'],
-      userId: json['user'],
+      userId: json['user'] ?? 0,
       type: json['type'],
       title: json['title'],
       message: json['message'],

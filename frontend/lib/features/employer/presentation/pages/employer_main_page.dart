@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import '../widgets/employer_header.dart';
+import 'package:provider/provider.dart';
+
+import '../../../advances/data/models/advance_model.dart';
+import '../../../advances/presentation/providers/advance_provider.dart';
+import '../../../companies/presentation/providers/company_provider.dart';
 import '../widgets/employer_bottom_nav.dart';
+import '../widgets/employer_header.dart';
 import '../widgets/employer_notifications_drawer.dart';
 import 'employer_requests_page.dart';
 
@@ -13,6 +18,25 @@ class EmployerMainPage extends StatefulWidget {
 
 class _EmployerMainPageState extends State<EmployerMainPage> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
+
+  Future<void> _loadData() async {
+    final companyProvider = context.read<CompanyProvider>();
+    final advanceProvider = context.read<AdvanceProvider>();
+    await companyProvider.loadMyCompany();
+    await Future.wait([
+      companyProvider.loadEmployees(active: true),
+      companyProvider.loadSummary(),
+      advanceProvider.loadMyAdvances(),
+    ]);
+    await EmployerNotificationProvider.loadUnreadCount();
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -23,35 +47,60 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
           children: [
             const EmployerHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Panel de Control',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Gestiona los adelantos de tus empleados',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildMetricsCards(),
-                    const SizedBox(height: 24),
-                    _buildRecentRequests(),
-                    const SizedBox(height: 24),
-                    _buildImportantInfo(),
-                  ],
+              child: RefreshIndicator(
+                onRefresh: _loadData,
+                child: Consumer2<CompanyProvider, AdvanceProvider>(
+                  builder: (context, companyProvider, advanceProvider, _) {
+                    final advances = [...advanceProvider.advances]
+                      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                    final employees = companyProvider.activeEmployees;
+                    final isLoading =
+                        companyProvider.isLoading || advanceProvider.isLoading;
+
+                    if (isLoading && advances.isEmpty && employees.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final totalDisbursed = advances
+                        .where((a) => a.isDisbursed || a.isRecovered)
+                        .fold<double>(0, (sum, a) => sum + a.amount);
+                    final pendingDiscount = advances
+                        .where((a) => a.isDisbursed)
+                        .fold<double>(0, (sum, a) => sum + a.amount);
+
+                    return ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        const Text(
+                          'Panel de Control',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Gestiona los adelantos de tus empleados',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        _buildMetricsCards(
+                          employeeCount: employees.length,
+                          totalDisbursed: totalDisbursed,
+                          pendingDiscount: pendingDiscount,
+                          requestCount: advances.length,
+                        ),
+                        const SizedBox(height: 22),
+                        _buildRecentRequests(advances.take(3).toList()),
+                        const SizedBox(height: 22),
+                        _buildImportantInfo(),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -62,7 +111,12 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
     );
   }
 
-  Widget _buildMetricsCards() {
+  Widget _buildMetricsCards({
+    required int employeeCount,
+    required double totalDisbursed,
+    required double pendingDiscount,
+    required int requestCount,
+  }) {
     return Column(
       children: [
         Row(
@@ -70,9 +124,8 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
             Expanded(
               child: _buildMetricCard(
                 title: 'Empleados',
-                value: '2',
+                value: employeeCount.toString(),
                 icon: Icons.people,
-                iconColor: Colors.white,
                 bgColor: const Color(0xFF2563EB),
                 textColor: Colors.white,
               ),
@@ -81,9 +134,8 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
             Expanded(
               child: _buildMetricCard(
                 title: 'Adelantado',
-                value: '\$ 300.000',
+                value: _money(totalDisbursed),
                 icon: Icons.attach_money,
-                iconColor: Colors.white,
                 bgColor: const Color(0xFF059669),
                 textColor: Colors.white,
               ),
@@ -96,20 +148,20 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
             Expanded(
               child: _buildMetricCard(
                 title: 'Pendiente descuento',
-                value: '\$ 0',
+                value: _money(pendingDiscount),
                 icon: Icons.trending_up,
+                bgColor: const Color(0xFFFFEDD5),
                 iconColor: const Color(0xFFEA580C),
-                bgColor: const Color(0xFFFED7AA),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildMetricCard(
                 title: 'Total solicitudes',
-                value: '1',
-                icon: Icons.attach_money,
+                value: requestCount.toString(),
+                icon: Icons.receipt_long,
+                bgColor: const Color(0xFFF3E8FF),
                 iconColor: const Color(0xFF7C3AED),
-                bgColor: const Color(0xFFE9D5FF),
               ),
             ),
           ],
@@ -122,37 +174,33 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
     required String title,
     required String value,
     required IconData icon,
-    required Color iconColor,
     required Color bgColor,
     Color? textColor,
+    Color? iconColor,
   }) {
-    final effectiveTextColor = textColor ?? const Color(0xFF374151);
-    final effectiveValueColor = textColor ?? const Color(0xFF111827);
+    final titleColor = textColor ?? const Color(0xFF4B5563);
+    final valueColor = textColor ?? const Color(0xFF111827);
     return Container(
       padding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(minHeight: 104),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: iconColor, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: effectiveTextColor,
-            ),
-          ),
-          const SizedBox(height: 4),
+          Icon(icon, color: iconColor ?? textColor ?? Colors.white, size: 23),
+          Text(title, style: TextStyle(fontSize: 12, color: titleColor)),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: effectiveValueColor,
+              fontWeight: FontWeight.w800,
+              color: valueColor,
             ),
           ),
         ],
@@ -160,79 +208,12 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
     );
   }
 
-  Widget _buildRecentRequests() {
+  Widget _buildRecentRequests(List<AdvanceModel> advances) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Solicitudes Recientes',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => EmployerRequestsPage()),
-                  );
-                },
-                child: const Text(
-                  'Ver todas',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildRequestCard(
-            name: 'María García',
-            id: 'CC: 9876543210',
-            date: '28/2/2026',
-            amount: '\$ 300.000',
-            status: 'descontado',
-            statusColor: const Color(0xFF059669),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRequestCard({
-    required String name,
-    required String id,
-    required String date,
-    required String amount,
-    required String status,
-    required Color statusColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
@@ -241,118 +222,156 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const Text(
+                'Solicitudes recientes',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                   color: Color(0xFF111827),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: statusColor,
-                  ),
-                ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const EmployerRequestsPage(),
+                    ),
+                  );
+                },
+                child: const Text('Ver todas'),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            id,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF6B7280),
+          const SizedBox(height: 12),
+          if (advances.isEmpty)
+            _buildEmptyLine('Aún no hay solicitudes registradas')
+          else
+            ...advances.map(_buildRequestCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(AdvanceModel advance) {
+    final color = _statusColor(advance.status);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  advance.employeeName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _shortDate(advance.requestDate),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                date,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF6B7280),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  advance.statusDisplay.toLowerCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
                 ),
               ),
+              const SizedBox(height: 8),
               Text(
-                amount,
+                _money(advance.amount),
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
                   color: Color(0xFF111827),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyLine(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF94A3B8),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildImportantInfo() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFDBEAFE),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.info_outline, size: 20, color: Color(0xFF2563EB)),
-              const SizedBox(width: 8),
-              const Text(
-                'Información importante:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E40AF),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildInfoBullet('El empleador NO gana intereses'),
-          _buildInfoBullet('Solo actúa como intermediario operativo'),
-          _buildInfoBullet('Responsable del descuento en nómina'),
-          _buildInfoBullet('Fee e interés son ganancias de la plataforma'),
-        ],
+      child: const Text(
+        'El empleador actúa como intermediario operativo y responsable del descuento en nómina. Fee e interés pertenecen a la plataforma.',
+        style: TextStyle(fontSize: 13, color: Color(0xFF1E40AF), height: 1.4),
       ),
     );
   }
 
-  Widget _buildInfoBullet(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('• ', style: TextStyle(color: Color(0xFF2563EB))),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF1E40AF),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  Color _statusColor(String status) {
+    return switch (status) {
+      'approved' => const Color(0xFF2563EB),
+      'disbursed' || 'recovered' => const Color(0xFF059669),
+      'rejected' || 'cancelled' => const Color(0xFFDC2626),
+      _ => const Color(0xFFF59E0B),
+    };
   }
 
+  String _shortDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+
+  String _money(num value) {
+    final text = value.round().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+    return '\$ $text';
+  }
 }

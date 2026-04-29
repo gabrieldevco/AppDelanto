@@ -4,11 +4,13 @@ import '../../data/services/admin_service.dart';
 
 class AdminProvider extends ChangeNotifier {
   final AdminService _adminService;
-  
+
   bool _isLoading = false;
   String? _error;
   List<dynamic> _users = [];
   Map<String, dynamic>? _dashboardStats;
+  Map<String, dynamic>? _reports;
+  Map<String, dynamic>? _settings;
 
   AdminProvider() : _adminService = AdminService(apiService);
 
@@ -17,6 +19,8 @@ class AdminProvider extends ChangeNotifier {
   String? get error => _error;
   List<dynamic> get users => _users;
   Map<String, dynamic>? get dashboardStats => _dashboardStats;
+  Map<String, dynamic>? get reports => _reports;
+  Map<String, dynamic>? get settings => _settings;
 
   // Cargar lista de usuarios
   Future<void> loadUsers({String? role, String? search}) async {
@@ -68,6 +72,64 @@ class AdminProvider extends ChangeNotifier {
       _isLoading = false;
       _error = 'Error al cargar estadísticas: $e';
       notifyListeners();
+    }
+  }
+
+  Future<void> loadReports({
+    required String startDate,
+    required String endDate,
+    int? employerId,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _reports = await _adminService.getReports(
+        startDate: startDate,
+        endDate: endDate,
+        employerId: employerId,
+      );
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Error al cargar reportes: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadSettings() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _settings = await _adminService.getSettings();
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Error al cargar configuracion: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateSettings(Map<String, dynamic> data) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _settings = await _adminService.updateSettings(data);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Error al guardar configuracion: $e';
+      notifyListeners();
+      return false;
     }
   }
 

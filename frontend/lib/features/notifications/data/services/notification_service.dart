@@ -38,7 +38,7 @@ class NotificationService {
   Future<int> getUnreadCount() async {
     try {
       final response = await _apiService.get(ApiConstants.notificationsUnread);
-      return response['count'] ?? 0;
+      return response['unread_count'] ?? response['count'] ?? 0;
     } catch (e) {
       return 0;
     }
@@ -47,7 +47,7 @@ class NotificationService {
   // Marcar notificación como leída
   Future<NotificationModel> markAsRead(int notificationId) async {
     final response = await _apiService.post(
-      '${ApiConstants.notifications}$notificationId/mark-read/',
+      '${ApiConstants.notifications}$notificationId/read/',
     );
     return NotificationModel.fromJson(response);
   }
@@ -92,7 +92,9 @@ class NotificationService {
   }
 
   // Suscribirse a notificaciones en tiempo real (simulado con polling)
-  Stream<int> unreadCountStream({Duration interval = const Duration(seconds: 30)}) async* {
+  Stream<int> unreadCountStream({
+    Duration interval = const Duration(seconds: 30),
+  }) async* {
     while (true) {
       try {
         final count = await getUnreadCount();

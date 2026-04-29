@@ -22,6 +22,12 @@ class _AdminHeaderState extends State<AdminHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.user;
+    final displayName = user == null
+        ? 'Administrador'
+        : (user.fullName.isNotEmpty ? user.fullName : user.username);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
@@ -54,8 +60,8 @@ class _AdminHeaderState extends State<AdminHeader> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'AppDelanta',
+                Text(
+                  displayName,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -64,10 +70,7 @@ class _AdminHeaderState extends State<AdminHeader> {
                 ),
                 const Text(
                   'Administrador',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF6B7280),
-                  ),
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                 ),
               ],
             ),
@@ -107,11 +110,7 @@ class _AdminHeaderState extends State<AdminHeader> {
             onPressed: () {
               _showLogoutConfirmation(context);
             },
-            icon: const Icon(
-              Icons.logout,
-              color: Color(0xFFDC2626),
-              size: 20,
-            ),
+            icon: const Icon(Icons.logout, color: Color(0xFFDC2626), size: 20),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
@@ -150,10 +149,7 @@ class _AdminHeaderState extends State<AdminHeader> {
                 color: Color(0xFFDC2626),
                 shape: BoxShape.circle,
               ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               child: Center(
                 child: Text(
                   _unreadCount > 9 ? '9+' : '$_unreadCount',
@@ -171,10 +167,11 @@ class _AdminHeaderState extends State<AdminHeader> {
   }
 
   void _showLogoutConfirmation(BuildContext context) {
+    final pageContext = context;
     showDialog(
-      context: context,
+      context: pageContext,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -203,10 +200,7 @@ class _AdminHeaderState extends State<AdminHeader> {
             const SizedBox(height: 8),
             const Text(
               '¿Estás seguro?',
-              style: TextStyle(
-                fontSize: 15,
-                color: Color(0xFF6B7280),
-              ),
+              style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -215,7 +209,7 @@ class _AdminHeaderState extends State<AdminHeader> {
             children: [
               Expanded(
                 child: TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -236,11 +230,15 @@ class _AdminHeaderState extends State<AdminHeader> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () async {
-                    Navigator.pop(context);
-                    await context.read<AuthProvider>().logout();
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
+                    final navigator = Navigator.of(
+                      pageContext,
+                      rootNavigator: true,
+                    );
+                    final authProvider = pageContext.read<AuthProvider>();
+                    Navigator.pop(dialogContext);
+                    await authProvider.logout();
+                    if (navigator.mounted) {
+                      navigator.pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginPage()),
                         (route) => false,
                       );
@@ -256,9 +254,7 @@ class _AdminHeaderState extends State<AdminHeader> {
                   ),
                   child: const Text(
                     'Sí, salir',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -266,9 +262,7 @@ class _AdminHeaderState extends State<AdminHeader> {
           ),
         ],
         actionsPadding: const EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

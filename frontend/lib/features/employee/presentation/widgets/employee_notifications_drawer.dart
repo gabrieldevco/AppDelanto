@@ -6,10 +6,12 @@ class EmployeeNotificationsDrawer extends StatefulWidget {
   const EmployeeNotificationsDrawer({super.key});
 
   @override
-  State<EmployeeNotificationsDrawer> createState() => _EmployeeNotificationsDrawerState();
+  State<EmployeeNotificationsDrawer> createState() =>
+      _EmployeeNotificationsDrawerState();
 }
 
-class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawer> {
+class _EmployeeNotificationsDrawerState
+    extends State<EmployeeNotificationsDrawer> {
   @override
   void initState() {
     super.initState();
@@ -23,78 +25,78 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
   Widget build(BuildContext context) {
     return Consumer<NotificationProvider>(
       builder: (context, notificationProvider, child) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
-      color: const Color(0xFFF8FAFC),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Header del drawer
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.notifications_outlined,
-                    color: Color(0xFF2563EB),
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Notificaciones',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF111827),
+        return Container(
+          width: MediaQuery.of(context).size.width * 0.85,
+          color: const Color(0xFFF8FAFC),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Header del drawer
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  color: Colors.white,
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications_outlined,
+                        color: Color(0xFF2563EB),
+                        size: 24,
                       ),
-                    ),
-                  ),
-                  if (notificationProvider.unreadCount > 0)
-                    TextButton.icon(
-                      onPressed: () => notificationProvider.markAllAsRead(),
-                      icon: const Icon(Icons.done_all, size: 18),
-                      label: const Text('Marcar todo'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Notificaciones',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
                       ),
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
-                    onPressed: () => Navigator.pop(context),
+                      if (notificationProvider.unreadCount > 0)
+                        TextButton.icon(
+                          onPressed: () => notificationProvider.markAllAsRead(),
+                          icon: const Icon(Icons.done_all, size: 18),
+                          label: const Text('Marcar todo'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF2563EB),
+                          ),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            // Contenido
-            Expanded(
-              child: Builder(
-                builder: (context) {
-                  final notifications = notificationProvider.notifications;
-                  
-                  if (notificationProvider.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (notifications.isEmpty) {
-                    return _buildEmptyState();
-                  }
-                  
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      return _buildNotificationCard(notifications[index]);
+                ),
+                // Contenido
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      final notifications = notificationProvider.notifications;
+
+                      if (notificationProvider.isLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (notifications.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: notifications.length,
+                        itemBuilder: (context, index) {
+                          return _buildNotificationCard(notifications[index]);
+                        },
+                      );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
       },
     );
   }
@@ -102,13 +104,17 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
   Widget _buildNotificationCard(dynamic notification) {
     Color iconColor;
     IconData iconData;
-    
+
     // Determinar color e icono según el tipo
     final type = notification.type?.toString().toLowerCase() ?? 'info';
-    if (type.contains('success') || type == 'aprobado' || type == 'desembolsado') {
+    if (type.contains('success') ||
+        type == 'aprobado' ||
+        type == 'desembolsado') {
       iconColor = const Color(0xFF059669);
       iconData = Icons.check_circle;
-    } else if (type.contains('warning') || type == 'rechazado' || type == 'pendiente') {
+    } else if (type.contains('warning') ||
+        type == 'rechazado' ||
+        type == 'pendiente') {
       iconColor = const Color(0xFFF59E0B);
       iconData = Icons.warning;
     } else {
@@ -117,7 +123,7 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
     }
 
     return Dismissible(
-      key: Key(notification.id),
+      key: Key(notification.id.toString()),
       direction: DismissDirection.endToStart,
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -158,7 +164,7 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
                       bottomLeft: Radius.circular(12),
                     ),
                   ),
-              ),
+                ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -172,11 +178,7 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
                           color: iconColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
-                          iconData,
-                          color: iconColor,
-                          size: 20,
-                        ),
+                        child: Icon(iconData, color: iconColor, size: 20),
                       ),
                       const SizedBox(width: 12),
                       // Contenido
@@ -256,7 +258,7 @@ class _EmployeeNotificationsDrawerState extends State<EmployeeNotificationsDrawe
     if (dateTime == null) return '';
     final now = DateTime.now();
     final diff = now.difference(dateTime);
-    
+
     if (diff.inMinutes < 1) return 'Hace un momento';
     if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} minutos';
     if (diff.inHours < 24) return 'Hace ${diff.inHours} horas';

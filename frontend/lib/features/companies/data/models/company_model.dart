@@ -16,6 +16,8 @@ class CompanyModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final CompanySettings? settings;
+  final String? bankAccount;
+  final String? bankName;
 
   CompanyModel({
     required this.id,
@@ -35,9 +37,14 @@ class CompanyModel {
     required this.createdAt,
     required this.updatedAt,
     this.settings,
+    this.bankAccount,
+    this.bankName,
   });
 
   factory CompanyModel.fromJson(Map<String, dynamic> json) {
+    final createdAt = DateTime.parse(
+      (json['created_at'] ?? DateTime.now().toIso8601String()).toString(),
+    );
     return CompanyModel(
       id: json['id'],
       name: json['name'],
@@ -48,16 +55,24 @@ class CompanyModel {
       email: json['email'],
       adminId: json['admin'],
       adminName: json['admin_name'],
-      maxAdvancePercentage: double.parse(json['max_advance_percentage'].toString()),
-      advanceFeePercentage: double.parse(json['advance_fee_percentage'].toString()),
+      maxAdvancePercentage: double.parse(
+        json['max_advance_percentage'].toString(),
+      ),
+      advanceFeePercentage: double.parse(
+        json['advance_fee_percentage'].toString(),
+      ),
       isActive: json['is_active'] ?? true,
       isVerified: json['is_verified'] ?? false,
       employeeCount: json['employee_count'] ?? 0,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: createdAt,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : createdAt,
       settings: json['settings'] != null
           ? CompanySettings.fromJson(json['settings'])
           : null,
+      bankAccount: json['bank_account'],
+      bankName: json['bank_name'],
     );
   }
 
@@ -80,11 +95,13 @@ class CompanyModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'settings': settings?.toJson(),
+      'bank_account': bankAccount,
+      'bank_name': bankName,
     };
   }
 
   double get maxAdvanceAmount => employeeCount > 0 ? maxAdvancePercentage : 0;
-  
+
   CompanyModel copyWith({
     int? id,
     String? name,
@@ -103,6 +120,8 @@ class CompanyModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     CompanySettings? settings,
+    String? bankAccount,
+    String? bankName,
   }) {
     return CompanyModel(
       id: id ?? this.id,
@@ -122,6 +141,8 @@ class CompanyModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       settings: settings ?? this.settings,
+      bankAccount: bankAccount ?? this.bankAccount,
+      bankName: bankName ?? this.bankName,
     );
   }
 }
@@ -176,8 +197,10 @@ class CompanySettings {
     return CompanySettings(
       id: id ?? this.id,
       paymentDay: paymentDay ?? this.paymentDay,
-      notifyOnAdvanceRequest: notifyOnAdvanceRequest ?? this.notifyOnAdvanceRequest,
-      notifyOnAdvanceApproved: notifyOnAdvanceApproved ?? this.notifyOnAdvanceApproved,
+      notifyOnAdvanceRequest:
+          notifyOnAdvanceRequest ?? this.notifyOnAdvanceRequest,
+      notifyOnAdvanceApproved:
+          notifyOnAdvanceApproved ?? this.notifyOnAdvanceApproved,
       minAdvanceAmount: minAdvanceAmount ?? this.minAdvanceAmount,
       maxAdvanceAmount: maxAdvanceAmount ?? this.maxAdvanceAmount,
     );
@@ -196,6 +219,7 @@ class EmployeeModel {
   final String? bankAccount;
   final String? bankName;
   final bool isActive;
+  final String? documentNumber;
 
   EmployeeModel({
     required this.id,
@@ -209,21 +233,33 @@ class EmployeeModel {
     this.bankAccount,
     this.bankName,
     required this.isActive,
+    this.documentNumber,
   });
 
   factory EmployeeModel.fromJson(Map<String, dynamic> json) {
+    final user = json['user'] is Map<String, dynamic>
+        ? json['user'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final firstName = (user['first_name'] ?? '').toString().trim();
+    final lastName = (user['last_name'] ?? '').toString().trim();
+    final fullName = '$firstName $lastName'.trim();
     return EmployeeModel(
       id: json['id'],
-      userId: json['user_id'],
-      name: json['name'] ?? 'Sin nombre',
-      email: json['email'] ?? '',
-      phone: json['phone'],
+      userId: json['user_id'] ?? user['id'] ?? 0,
+      name: json['name'] ?? (fullName.isEmpty ? 'Sin nombre' : fullName),
+      email: json['email'] ?? user['email'] ?? '',
+      phone: json['phone'] ?? user['phone'],
       salary: double.parse(json['salary'].toString()),
-      availableAdvanceLimit: double.parse(json['available_advance_limit'].toString()),
-      hireDate: json['hire_date'] != null ? DateTime.parse(json['hire_date']) : null,
+      availableAdvanceLimit: double.parse(
+        json['available_advance_limit'].toString(),
+      ),
+      hireDate: json['hire_date'] != null
+          ? DateTime.parse(json['hire_date'])
+          : null,
       bankAccount: json['bank_account'],
       bankName: json['bank_name'],
-      isActive: json['is_active'] ?? true,
+      isActive: json['is_active'] ?? user['is_active'] ?? true,
+      documentNumber: json['document_number'] ?? user['document_number'],
     );
   }
 
@@ -240,6 +276,7 @@ class EmployeeModel {
       'bank_account': bankAccount,
       'bank_name': bankName,
       'is_active': isActive,
+      'document_number': documentNumber,
     };
   }
 }

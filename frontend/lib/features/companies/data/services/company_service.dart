@@ -10,19 +10,12 @@ class CompanyService {
   // Obtener mi empresa (para empleadores)
   Future<CompanyModel?> getMyCompany() async {
     try {
-      final response = await _apiService.get(ApiConstants.companies);
-      
+      final response = await _apiService.get(ApiConstants.myCompany);
+      return CompanyModel.fromJson(response);
+
       // Si es una lista, tomar el primero (debería ser solo una empresa por empleador)
-      if (response is List && response.isNotEmpty) {
-        return CompanyModel.fromJson(response[0]);
-      }
-      
+
       // Si es paginado
-      if (response['results'] != null && response['results'].isNotEmpty) {
-        return CompanyModel.fromJson(response['results'][0]);
-      }
-      
-      return null;
     } catch (e) {
       return null;
     }
@@ -44,6 +37,8 @@ class CompanyService {
     String? email,
     double? maxAdvancePercentage,
     double? advanceFeePercentage,
+    String? bankAccount,
+    String? bankName,
   }) async {
     final data = {
       'name': name,
@@ -54,6 +49,8 @@ class CompanyService {
       'email': email,
       'max_advance_percentage': maxAdvancePercentage ?? 50.0,
       'advance_fee_percentage': advanceFeePercentage ?? 2.0,
+      'bank_account': bankAccount,
+      'bank_name': bankName,
     };
 
     final response = await _apiService.post(
@@ -75,6 +72,8 @@ class CompanyService {
     double? maxAdvancePercentage,
     double? advanceFeePercentage,
     bool? isActive,
+    String? bankAccount,
+    String? bankName,
   }) async {
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
@@ -90,8 +89,10 @@ class CompanyService {
       data['advance_fee_percentage'] = advanceFeePercentage;
     }
     if (isActive != null) data['is_active'] = isActive;
+    if (bankAccount != null) data['bank_account'] = bankAccount;
+    if (bankName != null) data['bank_name'] = bankName;
 
-    final response = await _apiService.put(
+    final response = await _apiService.patch(
       '${ApiConstants.companies}$id/',
       data: data,
     );
@@ -144,7 +145,7 @@ class CompanyService {
     if (active != null) queryParams['is_active'] = active;
 
     final response = await _apiService.get(
-      '${ApiConstants.companies}$companyId/employees/',
+      ApiConstants.employeeProfiles,
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
 
@@ -205,8 +206,8 @@ class CompanyService {
     if (bankName != null) data['bank_name'] = bankName;
     if (isActive != null) data['is_active'] = isActive;
 
-    final response = await _apiService.put(
-      '${ApiConstants.companies}$companyId/employees/$employeeId/',
+    final response = await _apiService.patch(
+      '${ApiConstants.employeeProfiles}$employeeId/',
       data: data,
     );
     return EmployeeModel.fromJson(response);
@@ -214,9 +215,7 @@ class CompanyService {
 
   // Eliminar/Desactivar empleado
   Future<void> removeEmployee(int companyId, int employeeId) async {
-    await _apiService.delete(
-      '${ApiConstants.companies}$companyId/employees/$employeeId/',
-    );
+    await _apiService.delete('${ApiConstants.employeeProfiles}$employeeId/');
   }
 
   // Obtener resumen/estadísticas de la empresa

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/admin_provider.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/admin_header.dart';
 import '../widgets/admin_notifications_drawer.dart';
@@ -13,17 +15,176 @@ class AdminSettingsPage extends StatefulWidget {
 class _AdminSettingsPageState extends State<AdminSettingsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final List<_FeeControllers> _fees = [];
+  final List<_WindowControllers> _windows = [];
+  final _interestController = TextEditingController();
+  final _salaryPercentController = TextEditingController();
+  final _minDaysController = TextEditingController();
+  final _maxDaysController = TextEditingController();
+  bool _hydrated = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _setDefaultControllers();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final adminProvider = context.read<AdminProvider>();
+      await adminProvider.loadSettings();
+      if (!mounted) return;
+      _hydrated = false;
+      _hydrate(adminProvider.settings);
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    for (final item in _fees) {
+      item.dispose();
+    }
+    for (final item in _windows) {
+      item.dispose();
+    }
+    _interestController.dispose();
+    _salaryPercentController.dispose();
+    _minDaysController.dispose();
+    _maxDaysController.dispose();
     super.dispose();
+  }
+
+  void _hydrate(Map<String, dynamic>? settings) {
+    if (settings == null || _hydrated) return;
+    _interestController.text = '${settings['interest_rate_monthly'] ?? '2.50'}';
+    _salaryPercentController.text =
+        '${settings['max_salary_percentage'] ?? '50'}';
+    _minDaysController.text = '${settings['min_days'] ?? '1'}';
+    _maxDaysController.text = '${settings['max_days'] ?? '30'}';
+
+    _fees
+      ..forEach((item) => item.dispose())
+      ..clear();
+    final feeRanges = settings['fee_ranges'] as List? ?? const [];
+    if (feeRanges.isEmpty) {
+      _addDefaultFees();
+    } else {
+      for (final item in feeRanges) {
+        _fees.add(_FeeControllers.fromMap(item as Map));
+      }
+    }
+
+    _windows
+      ..forEach((item) => item.dispose())
+      ..clear();
+    final windows = settings['disbursement_windows'] as List? ?? const [];
+    if (windows.isEmpty) {
+      _addDefaultWindows();
+    } else {
+      for (final item in windows) {
+        _windows.add(_WindowControllers.fromMap(item as Map));
+      }
+    }
+
+    _hydrated = true;
+    if (mounted) setState(() {});
+  }
+
+  void _setDefaultControllers() {
+    _interestController.text = '2.5';
+    _salaryPercentController.text = '50';
+    _minDaysController.text = '1';
+    _maxDaysController.text = '30';
+    _fees
+      ..forEach((item) => item.dispose())
+      ..clear();
+    _windows
+      ..forEach((item) => item.dispose())
+      ..clear();
+    _addDefaultFees();
+    _addDefaultWindows();
+    _hydrated = true;
+  }
+
+  void _addDefaultFees() {
+    _fees
+      ..add(_FeeControllers(min: '50000', max: '150000', fee: '5000'))
+      ..add(_FeeControllers(min: '150001', max: '400000', fee: '10000'))
+      ..add(_FeeControllers(min: '400001', max: '1000000', fee: '15000'));
+  }
+
+  void _addDefaultWindows() {
+    _windows
+      ..add(
+        _WindowControllers(
+          name: 'Franja 1',
+          start: '06:00',
+          end: '12:00',
+          process: '13:00',
+        ),
+      )
+      ..add(
+        _WindowControllers(
+          name: 'Franja 2',
+          start: '12:01',
+          end: '17:00',
+          process: '18:00',
+        ),
+      );
+  }
+
+  Future<void> _restoreDefaults() async {
+    setState(_setDefaultControllers);
+    await _saveSettings();
+  }
+
+  Future<void> _saveSettings() async {
+    final payload = {
+      'interest_rate_monthly': _interestController.text,
+      'max_salary_percentage': _salaryPercentController.text,
+      'min_days': int.tryParse(_minDaysController.text) ?? 1,
+      'max_days': int.tryParse(_maxDaysController.text) ?? 30,
+      'fee_ranges': _fees
+          .asMap()
+          .entries
+          .map(
+            (entry) => {
+              'order': entry.key + 1,
+              'min_amount': entry.value.min.text,
+              'max_amount': entry.value.max.text,
+              'fee': entry.value.fee.text,
+            },
+          )
+          .toList(),
+      'disbursement_windows': _windows
+          .asMap()
+          .entries
+          .map(
+            (entry) => {
+              'order': entry.key + 1,
+              'name': entry.value.name.text,
+              'start_time': entry.value.start.text,
+              'end_time': entry.value.end.text,
+              'processing_time': entry.value.process.text,
+            },
+          )
+          .toList(),
+    };
+
+    final adminProvider = context.read<AdminProvider>();
+    final success = await adminProvider.updateSettings(payload);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Configuracion guardada en la base de datos'
+              : 'Error al guardar configuracion',
+        ),
+        backgroundColor: success
+            ? const Color(0xFF059669)
+            : const Color(0xFFDC2626),
+      ),
+    );
   }
 
   @override
@@ -37,14 +198,13 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
           children: [
             const AdminHeader(),
             const SizedBox(height: 24),
-            // Header section (fijo)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Configuración',
+                    'Configuracion',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
@@ -53,14 +213,10 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Administra los parámetros del sistema',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF6B7280),
-                    ),
+                    'Administra los parametros del sistema',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
                   ),
                   const SizedBox(height: 20),
-                  // Tabs fijas
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFE5E7EB),
@@ -71,29 +227,14 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                       indicator: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelColor: const Color(0xFF111827),
                       unselectedLabelColor: const Color(0xFF6B7280),
-                      labelStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      unselectedLabelStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
                       dividerColor: Colors.transparent,
                       tabs: const [
                         Tab(text: 'Fees e Intereses'),
-                        Tab(text: 'Operación'),
+                        Tab(text: 'Operacion'),
                       ],
                     ),
                   ),
@@ -101,14 +242,21 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                 ],
               ),
             ),
-            // Tab content (scrollable)
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildFeesInteresesTab(),
-                  _buildOperacionTab(),
-                ],
+              child: Consumer<AdminProvider>(
+                builder: (context, adminProvider, child) {
+                  _hydrate(adminProvider.settings);
+                  if (adminProvider.isLoading && !_hydrated) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (adminProvider.error != null && !_hydrated) {
+                    return Center(child: Text(adminProvider.error!));
+                  }
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [_feesTab(), _operationTab()],
+                  );
+                },
               ),
             ),
           ],
@@ -118,738 +266,313 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     );
   }
 
-  Widget _buildFeesInteresesTab() {
+  Widget _feesTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
-          // Configuración de Fees Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
+          _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.attach_money,
-                        color: Color(0xFF059669),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Configuración de Fees',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          Text(
-                            'Define las comisiones por rango de monto',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Restaurar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B7280),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ],
+                _sectionHeader(
+                  Icons.attach_money,
+                  'Configuracion de Fees',
+                  'Define comisiones por rango de monto',
+                  _restoreDefaults,
                 ),
                 const SizedBox(height: 20),
-                // Rango 1
-                _buildFeeRangeCard(
-                  'Rango 1',
-                  '50000',
-                  '150000',
-                  '5000',
-                  '\$ 50.000 - \$ 150.000 → Fee: \$ 5.000',
-                  const Color(0xFFDBEAFE),
-                  const Color(0xFF2563EB),
+                ..._fees.asMap().entries.map(
+                  (entry) => _feeCard(entry.key, entry.value),
                 ),
-                const SizedBox(height: 12),
-                // Rango 2
-                _buildFeeRangeCard(
-                  'Rango 2',
-                  '150001',
-                  '400000',
-                  '10000',
-                  '\$ 150.001 - \$ 400.000 → Fee: \$ 10.000',
-                  const Color(0xFFF3E8FF),
-                  const Color(0xFF7C3AED),
-                ),
-                const SizedBox(height: 12),
-                // Rango 3
-                _buildFeeRangeCard(
-                  'Rango 3',
-                  '400001',
-                  '1000000',
-                  '15000',
-                  '\$ 400.001 - \$ 1.000.000 → Fee: \$ 15.000',
-                  const Color(0xFFECFDF5),
-                  const Color(0xFF059669),
-                ),
-                const SizedBox(height: 20),
-                // Guardar button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showSuccessDialog('Configuración de Fees'),
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      'Guardar Configuración de Fees',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _fees.add(_FeeControllers())),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Agregar rango'),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          // Configuración de Intereses Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
+          _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.percent,
-                        color: Color(0xFFF59E0B),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Configuración de Intereses',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          Text(
-                            'Define la tasa de interés mensual',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Restaurar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B7280),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Tasa de interés mensual (%)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF374151),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Text(
-                        '2.5',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF111827),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'El interés se calcula proporcionalmente según los días del préstamo',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF6B7280),
-                  ),
+                _sectionHeader(
+                  Icons.percent,
+                  'Configuracion de Intereses',
+                  'Tasa mensual usada por todos los adelantos',
+                  _restoreDefaults,
                 ),
                 const SizedBox(height: 16),
-                // Ejemplo de cálculo
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Ejemplo de cálculo:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF92400E),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Préstamo de \$300.000 por 15 días:\nInterés = \$300.000 × 2.5% × (15/30) = \$3.750',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFA16207),
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
+                _textField(
+                  'Tasa de interes mensual (%)',
+                  _interestController,
+                  decimal: true,
                 ),
                 const SizedBox(height: 20),
-                // Guardar button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showSuccessDialog('Configuración de Intereses'),
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      'Guardar Configuración de Intereses',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
+                _saveButton('Guardar Fees e Intereses'),
               ],
             ),
           ),
-          const SizedBox(height: 60),
         ],
       ),
     );
   }
 
-  Widget _buildOperacionTab() {
+  Widget _operationTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
-          // Límites de Operación Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
+          _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDBEAFE),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.tune,
-                        color: Color(0xFF2563EB),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Límites de Operación',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          Text(
-                            'Define los límites para solicitudes',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Restaurar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B7280),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ],
+                _sectionHeader(
+                  Icons.tune,
+                  'Limites de Operacion',
+                  'Aplica a empleados, empleadores y admin',
+                  _restoreDefaults,
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Porcentaje máximo del salario (%)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF374151),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildConfigInput('50'),
-                const SizedBox(height: 8),
-                const Text(
-                  'El empleado podrá solicitar hasta el 50% de su salario',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF6B7280),
-                  ),
+                const SizedBox(height: 16),
+                _textField(
+                  'Porcentaje maximo del salario (%)',
+                  _salaryPercentController,
+                  decimal: true,
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Días mínimos',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF374151),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildConfigInput('1'),
-                        ],
-                      ),
+                      child: _textField('Dias minimos', _minDaysController),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Días máximos',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF374151),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildConfigInput('30'),
-                        ],
-                      ),
+                      child: _textField('Dias maximos', _maxDaysController),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showSuccessDialog('Límites de Operación'),
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      'Guardar Límites de Operación',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
+                _saveButton('Guardar Limites de Operacion'),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          // Franjas de Desembolso Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
+          _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3E8FF),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.schedule,
-                        color: Color(0xFF7C3AED),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Franjas de Desembolso',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          Text(
-                            'Define los horarios de procesamiento',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Restaurar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B7280),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ],
+                _sectionHeader(
+                  Icons.schedule,
+                  'Franjas de Desembolso',
+                  'Horarios globales de procesamiento',
+                  _restoreDefaults,
                 ),
-                const SizedBox(height: 20),
-                // Franja 1
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDBEAFE).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFDBEAFE)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Franja 1',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2563EB),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTimeField('Hora inicio', '06:00 a.m.'),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTimeField('Hora fin', '12:00 p.m.'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTimeField('Hora de procesamiento', '01:00 p.m.'),
-                    ],
-                  ),
+                const SizedBox(height: 16),
+                ..._windows.asMap().entries.map(
+                  (entry) => _windowCard(entry.key, entry.value),
                 ),
-                const SizedBox(height: 12),
-                // Franja 2
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3E8FF).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFF3E8FF)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Franja 2',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF7C3AED),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTimeField('Hora inicio', '12:01 p.m.'),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTimeField('Hora fin', '05:00 p.m.'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTimeField('Hora de procesamiento', '06:00 p.m.'),
-                    ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _windows.add(_WindowControllers())),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Agregar franja'),
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showSuccessDialog('Franjas de Desembolso'),
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      'Guardar Franjas de Desembolso',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
+                _saveButton('Guardar Franjas de Desembolso'),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          // Precaución Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3C7),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber,
-                      color: Color(0xFFF59E0B),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Precaución:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF92400E),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _buildBulletPoint('Los cambios se aplicarán inmediatamente'),
-                _buildBulletPoint('Las solicitudes existentes mantendrán sus condiciones originales'),
-                _buildBulletPoint('Se recomienda comunicar cambios importantes a empleadores'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 60),
+          _warningCard(),
         ],
       ),
     );
   }
 
-  Widget _buildFeeRangeCard(
-    String title,
-    String minAmount,
-    String maxAmount,
-    String fee,
-    String summary,
-    Color bgColor,
-    Color titleColor,
-  ) {
+  Widget _card({required Widget child}) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _sectionHeader(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onRestore,
+  ) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: const Color(0xFF2563EB)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: onRestore,
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Recargar',
+        ),
+      ],
+    );
+  }
+
+  Widget _feeCard(int index, _FeeControllers item) {
+    final colors = [
+      const Color(0xFFDBEAFE),
+      const Color(0xFFF3E8FF),
+      const Color(0xFFECFDF5),
+    ];
+    final color = colors[index % colors.length];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: bgColor.withValues(alpha: 0.3),
+        color: color.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: bgColor),
+        border: Border.all(color: color),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: titleColor,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Rango ${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _fees.length <= 1
+                    ? null
+                    : () => setState(() => _fees.removeAt(index).dispose()),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(child: _textField('Monto minimo', item.min)),
+              const SizedBox(width: 12),
+              Expanded(child: _textField('Monto maximo', item.max)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _textField('Fee', item.fee),
+        ],
+      ),
+    );
+  }
+
+  Widget _windowCard(int index, _WindowControllers item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _textField('Nombre', item.name, text: true)),
+              IconButton(
+                onPressed: _windows.length <= 1
+                    ? null
+                    : () => setState(() => _windows.removeAt(index).dispose()),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildConfigField('Monto mínimo', minAmount),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildConfigField('Monto máximo', maxAmount),
-              ),
+              Expanded(child: _textField('Inicio', item.start, text: true)),
+              const SizedBox(width: 8),
+              Expanded(child: _textField('Fin', item.end, text: true)),
             ],
           ),
           const SizedBox(height: 12),
-          _buildConfigField('Fee', fee),
-          const SizedBox(height: 12),
-          Text(
-            summary,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: titleColor,
-            ),
-          ),
+          _textField('Procesamiento', item.process, text: true),
         ],
       ),
     );
   }
 
-  Widget _buildConfigField(String label, String value) {
+  Widget _textField(
+    String label,
+    TextEditingController controller, {
+    bool decimal = false,
+    bool text = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF374151),
-          ),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
         ),
         const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+        TextField(
+          controller: controller,
+          keyboardType: text
+              ? TextInputType.text
+              : TextInputType.numberWithOptions(decimal: decimal),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF3F4F6),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
@@ -857,156 +580,96 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     );
   }
 
-  Widget _buildConfigInput(String value) {
-    return Container(
+  Widget _saveButton(String label) {
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: ElevatedButton.icon(
+        onPressed: _saveSettings,
+        icon: const Icon(Icons.save, color: Colors.white),
+        label: Text(label, style: const TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF111827),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _warningCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFDE68A)),
       ),
-      child: Row(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
-            ),
-          ),
-        ],
+      child: const Text(
+        'Los cambios se aplican inmediatamente a nuevos adelantos y recalculan el limite disponible de empleados existentes.',
+        style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
       ),
     );
   }
+}
 
-  Widget _buildTimeField(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF374151),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.access_time,
-                size: 16,
-                color: Color(0xFF9CA3AF),
-              ),
-            ],
-          ),
-        ),
-      ],
+class _FeeControllers {
+  final TextEditingController min;
+  final TextEditingController max;
+  final TextEditingController fee;
+
+  _FeeControllers({String min = '', String max = '', String fee = ''})
+    : min = TextEditingController(text: _clean(min)),
+      max = TextEditingController(text: _clean(max)),
+      fee = TextEditingController(text: _clean(fee));
+
+  factory _FeeControllers.fromMap(Map item) {
+    return _FeeControllers(
+      min: '${item['min_amount'] ?? ''}',
+      max: '${item['max_amount'] ?? ''}',
+      fee: '${item['fee'] ?? ''}',
     );
   }
 
-  void _showSuccessDialog(String title) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.check_circle,
-              color: Color(0xFF059669),
-              size: 64,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Guardado exitosamente',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6B7280),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Aceptar',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  static String _clean(String value) => value.replaceAll('.00', '');
+
+  void dispose() {
+    min.dispose();
+    max.dispose();
+    fee.dispose();
+  }
+}
+
+class _WindowControllers {
+  final TextEditingController name;
+  final TextEditingController start;
+  final TextEditingController end;
+  final TextEditingController process;
+
+  _WindowControllers({
+    String name = 'Franja',
+    String start = '06:00',
+    String end = '12:00',
+    String process = '13:00',
+  }) : name = TextEditingController(text: name),
+       start = TextEditingController(text: start),
+       end = TextEditingController(text: end),
+       process = TextEditingController(text: process);
+
+  factory _WindowControllers.fromMap(Map item) {
+    return _WindowControllers(
+      name: '${item['name'] ?? 'Franja'}',
+      start: '${item['start_time'] ?? '06:00'}',
+      end: '${item['end_time'] ?? '12:00'}',
+      process: '${item['processing_time'] ?? '13:00'}',
     );
   }
 
-  Widget _buildBulletPoint(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '• ',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFFF59E0B),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFFA16207),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  void dispose() {
+    name.dispose();
+    start.dispose();
+    end.dispose();
+    process.dispose();
   }
 }

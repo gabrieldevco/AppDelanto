@@ -11,18 +11,29 @@ class AdvanceService {
   Future<AdvanceModel> createAdvance({
     required double amount,
     required String reason,
+    int? days,
   }) async {
     // Redondear a 2 decimales y convertir a string para evitar precisión excesiva
     final formattedAmount = double.parse(amount.toStringAsFixed(2));
-    
-    final response = await _apiService.post(
-      ApiConstants.advances,
-      data: {
-        'amount': formattedAmount,
-        'reason': reason,
-      },
-    );
+
+    final data = <String, dynamic>{'amount': formattedAmount, 'reason': reason};
+    if (days != null) {
+      data['days'] = days;
+    }
+
+    final response = await _apiService.post(ApiConstants.advances, data: data);
     return AdvanceModel.fromJson(response);
+  }
+
+  Future<Map<String, dynamic>> calculateAdvance({
+    required double amount,
+    required int days,
+  }) async {
+    final response = await _apiService.post(
+      ApiConstants.advancesCalculate,
+      data: {'amount': double.parse(amount.toStringAsFixed(2)), 'days': days},
+    );
+    return response as Map<String, dynamic>;
   }
 
   // Obtener lista de adelantos del usuario actual
@@ -37,7 +48,9 @@ class AdvanceService {
 
     // Manejar tanto lista simple como paginación
     final results = response is List ? response : (response['results'] ?? []);
-    return results.map<AdvanceModel>((json) => AdvanceModel.fromJson(json)).toList();
+    return results
+        .map<AdvanceModel>((json) => AdvanceModel.fromJson(json))
+        .toList();
   }
 
   // Obtener adelantos pendientes (para empleadores/admins)
@@ -51,7 +64,9 @@ class AdvanceService {
     );
 
     final results = response is List ? response : (response['results'] ?? []);
-    return results.map<AdvanceModel>((json) => AdvanceModel.fromJson(json)).toList();
+    return results
+        .map<AdvanceModel>((json) => AdvanceModel.fromJson(json))
+        .toList();
   }
 
   // Obtener detalle de un adelanto
@@ -71,7 +86,10 @@ class AdvanceService {
   // Rechazar adelanto (empleador/admin)
   Future<AdvanceModel> rejectAdvance(int id, {String? reason}) async {
     final data = <String, dynamic>{};
-    if (reason != null) data['reason'] = reason;
+    if (reason != null) {
+      data['reason'] = reason;
+      data['notes'] = reason;
+    }
 
     final response = await _apiService.post(
       '${ApiConstants.advances}$id/reject/',
@@ -87,9 +105,7 @@ class AdvanceService {
   }) async {
     final response = await _apiService.post(
       '${ApiConstants.advances}$id/disburse/',
-      data: {
-        'disbursement_reference': reference,
-      },
+      data: {'disbursement_reference': reference},
     );
     return AdvanceModel.fromJson(response);
   }

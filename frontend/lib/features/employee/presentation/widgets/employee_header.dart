@@ -9,10 +9,7 @@ import '../pages/employee_profile_page.dart';
 class EmployeeHeader extends StatefulWidget {
   final VoidCallback? onNotificationTap;
 
-  const EmployeeHeader({
-    super.key,
-    this.onNotificationTap,
-  });
+  const EmployeeHeader({super.key, this.onNotificationTap});
 
   @override
   State<EmployeeHeader> createState() => _EmployeeHeaderState();
@@ -109,7 +106,9 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const EmployeeProfilePage()),
+                    MaterialPageRoute(
+                      builder: (_) => const EmployeeProfilePage(),
+                    ),
                   );
                 },
               ),
@@ -127,9 +126,12 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
     );
   }
 
-  Widget _buildNotificationIcon(BuildContext context, NotificationProvider notificationProvider) {
+  Widget _buildNotificationIcon(
+    BuildContext context,
+    NotificationProvider notificationProvider,
+  ) {
     final unreadCount = notificationProvider.unreadCount;
-    
+
     return Stack(
       children: [
         IconButton(
@@ -137,9 +139,11 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
           color: const Color(0xFF6B7280),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          onPressed: widget.onNotificationTap ?? () {
-            Scaffold.of(context).openEndDrawer();
-          },
+          onPressed:
+              widget.onNotificationTap ??
+              () {
+                Scaffold.of(context).openEndDrawer();
+              },
         ),
         if (unreadCount > 0)
           Positioned(
@@ -151,10 +155,7 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                 color: Color(0xFFDC2626),
                 shape: BoxShape.circle,
               ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               child: Center(
                 child: Text(
                   unreadCount > 9 ? '9+' : '$unreadCount',
@@ -172,10 +173,11 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final pageContext = context;
     showDialog(
-      context: context,
+      context: pageContext,
       barrierDismissible: false,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -191,7 +193,11 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                   color: Color(0xFFFEE2E2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.logout, color: Color(0xFFDC2626), size: 24),
+                child: const Icon(
+                  Icons.logout,
+                  color: Color(0xFFDC2626),
+                  size: 24,
+                ),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -213,16 +219,21 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(dialogContext),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF374151),
                         side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       child: const Text(
                         'Cancelar',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -231,11 +242,19 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                     child: ElevatedButton(
                       onPressed: () async {
                         // Cerrar sesión en backend
-                        await context.read<AuthProvider>().logout();
+                        final navigator = Navigator.of(
+                          pageContext,
+                          rootNavigator: true,
+                        );
+                        final authProvider = pageContext.read<AuthProvider>();
+                        Navigator.pop(dialogContext);
+                        await authProvider.logout();
                         // Navegar al login (el diálogo se cierra automáticamente)
-                        if (context.mounted) {
-                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const LoginPage()),
+                        if (navigator.mounted) {
+                          navigator.pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
                             (route) => false,
                           );
                         }
@@ -244,12 +263,17 @@ class _EmployeeHeaderState extends State<EmployeeHeader> {
                         backgroundColor: const Color(0xFFDC2626),
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       child: const Text(
                         'Sí, salir',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
