@@ -7,19 +7,20 @@ enum NotificationStatus { initial, loading, loaded, submitting, error }
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService;
-  
+
   NotificationStatus _status = NotificationStatus.initial;
   List<NotificationModel> _notifications = [];
   int _unreadCount = 0;
   String? _errorMessage;
 
-  NotificationProvider() : _notificationService = NotificationService(apiService);
+  NotificationProvider()
+    : _notificationService = NotificationService(apiService);
 
   // Getters
   NotificationStatus get status => _status;
   List<NotificationModel> get notifications => _notifications;
-  List<NotificationModel> get unreadNotifications => 
-    _notifications.where((n) => !n.isRead).toList();
+  List<NotificationModel> get unreadNotifications =>
+      _notifications.where((n) => !n.isRead).toList();
   int get unreadCount => _unreadCount;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _status == NotificationStatus.loading;
@@ -32,11 +33,15 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _notifications = await _notificationService.getNotifications(isRead: isRead);
+      _notifications = await _notificationService.getNotifications(
+        isRead: isRead,
+      );
       _status = NotificationStatus.loaded;
-      
+
       // Actualizar conteo de no leídas
-      _unreadCount = unreadNotifications.length;
+      _unreadCount = isRead == false
+          ? _notifications.length
+          : await _notificationService.getUnreadCount();
     } catch (e) {
       _status = NotificationStatus.error;
       _errorMessage = 'Error al cargar notificaciones: ${e.toString()}';
@@ -63,7 +68,7 @@ class NotificationProvider extends ChangeNotifier {
   Future<bool> markAsRead(int notificationId) async {
     try {
       await _notificationService.markAsRead(notificationId);
-      
+
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1) {
         _notifications[index] = _notifications[index].copyWith(
@@ -72,6 +77,8 @@ class NotificationProvider extends ChangeNotifier {
         );
         if (_unreadCount > 0) _unreadCount--;
         notifyListeners();
+      } else {
+        await refreshUnreadCount();
       }
       return true;
     } catch (e) {
@@ -88,10 +95,10 @@ class NotificationProvider extends ChangeNotifier {
 
     try {
       await _notificationService.markAllAsRead();
-      
-      _notifications = _notifications.map((n) => 
-        n.copyWith(isRead: true, readAt: DateTime.now())
-      ).toList();
+
+      _notifications = _notifications
+          .map((n) => n.copyWith(isRead: true, readAt: DateTime.now()))
+          .toList();
       _unreadCount = 0;
       _status = NotificationStatus.loaded;
       notifyListeners();
@@ -108,15 +115,27 @@ class NotificationProvider extends ChangeNotifier {
   Future<bool> deleteNotification(int notificationId) async {
     try {
       await _notificationService.deleteNotification(notificationId);
-      
-      final wasUnread = _notifications
-          .firstWhere((n) => n.id == notificationId, orElse: () => 
-            NotificationModel(id: 0, userId: 0, type: '', title: '', message: '', isRead: true, createdAt: DateTime.now()))
-          .isRead == false;
-      
+
+      final wasUnread =
+          _notifications
+              .firstWhere(
+                (n) => n.id == notificationId,
+                orElse: () => NotificationModel(
+                  id: 0,
+                  userId: 0,
+                  type: '',
+                  title: '',
+                  message: '',
+                  isRead: true,
+                  createdAt: DateTime.now(),
+                ),
+              )
+              .isRead ==
+          false;
+
       _notifications.removeWhere((n) => n.id == notificationId);
       if (wasUnread && _unreadCount > 0) _unreadCount--;
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -134,7 +153,9 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   // Polling de notificaciones no leídas
-  Future<void> startUnreadPolling({Duration interval = const Duration(seconds: 30)}) async {
+  Future<void> startUnreadPolling({
+    Duration interval = const Duration(seconds: 30),
+  }) async {
     // Este método se puede llamar periódicamente desde la UI
     await refreshUnreadCount();
   }

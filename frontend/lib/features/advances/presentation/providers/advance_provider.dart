@@ -121,13 +121,7 @@ class AdvanceProvider extends ChangeNotifier {
 
     try {
       final updated = await _advanceService.approveAdvance(advanceId);
-
-      // Actualizar en la lista de pendientes
-      final index = _pendingAdvances.indexWhere((a) => a.id == advanceId);
-      if (index != -1) {
-        _pendingAdvances[index] = updated;
-        _pendingAdvances.removeAt(index);
-      }
+      _updateAdvanceInList(updated);
 
       _status = AdvanceStatus.success;
       notifyListeners();
@@ -146,12 +140,11 @@ class AdvanceProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _advanceService.rejectAdvance(advanceId, reason: reason);
-
-      final index = _pendingAdvances.indexWhere((a) => a.id == advanceId);
-      if (index != -1) {
-        _pendingAdvances.removeAt(index);
-      }
+      final updated = await _advanceService.rejectAdvance(
+        advanceId,
+        reason: reason,
+      );
+      _updateAdvanceInList(updated);
 
       _status = AdvanceStatus.success;
       notifyListeners();
@@ -185,6 +178,25 @@ class AdvanceProvider extends ChangeNotifier {
     } catch (e) {
       _status = AdvanceStatus.error;
       _errorMessage = 'Error al desembolsar: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> undisburseAdvance(int advanceId) async {
+    _status = AdvanceStatus.submitting;
+    notifyListeners();
+
+    try {
+      final updated = await _advanceService.undisburseAdvance(advanceId);
+
+      _updateAdvanceInList(updated);
+      _status = AdvanceStatus.success;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = AdvanceStatus.error;
+      _errorMessage = 'Error al marcar incompleto: ${e.toString()}';
       notifyListeners();
       return false;
     }
@@ -236,11 +248,17 @@ class AdvanceProvider extends ChangeNotifier {
     final index = _advances.indexWhere((a) => a.id == updated.id);
     if (index != -1) {
       _advances[index] = updated;
+    } else {
+      _advances.insert(0, updated);
     }
 
     final pendingIndex = _pendingAdvances.indexWhere((a) => a.id == updated.id);
-    if (pendingIndex != -1) {
+    if (updated.isPending && pendingIndex != -1) {
       _pendingAdvances[pendingIndex] = updated;
+    } else if (updated.isPending) {
+      _pendingAdvances.insert(0, updated);
+    } else if (pendingIndex != -1) {
+      _pendingAdvances.removeAt(pendingIndex);
     }
 
     if (_selectedAdvance?.id == updated.id) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../auth/data/models/user_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/data/services/auth_service.dart';
 import '../widgets/employee_header.dart';
@@ -32,6 +33,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
   int? _selectedCompanyId;
   List<Map<String, dynamic>> _availableCompanies = [];
   bool _loadingCompanies = false;
+  int? _syncedUserId;
 
   // Controllers para seguridad
   final _currentPassController = TextEditingController();
@@ -46,6 +48,14 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _idController = TextEditingController();
+    _salaryController = TextEditingController();
+    _addressController = TextEditingController(text: 'No especificada');
+    _bankController = TextEditingController();
+    _accountController = TextEditingController();
+    _companyController = TextEditingController();
     // Refrescar perfil al cargar
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshProfile();
@@ -58,6 +68,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     setState(() => _loadingCompanies = true);
     try {
       final response = await apiService.get('/api/companies/available/');
+      if (!mounted) return;
       setState(() {
         _availableCompanies = List<Map<String, dynamic>>.from(response);
       });
@@ -65,10 +76,38 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       // Mostrar error en consola para depuración
       debugPrint('Error cargando empresas: $e');
     } finally {
-      setState(() => _loadingCompanies = false);
+      if (mounted) {
+        setState(() => _loadingCompanies = false);
+      }
     }
   }
-  
+
+  void _syncControllersFromUser(UserModel? user) {
+    if (user == null || _isEditing || _syncedUserId == user.id) return;
+
+    _syncedUserId = user.id;
+    _nameController.text = user.firstName.isNotEmpty || user.lastName.isNotEmpty
+        ? '${user.firstName} ${user.lastName}'.trim()
+        : user.username;
+    _emailController.text = user.email;
+    _idController.text = user.documentNumber ?? '';
+    _salaryController.text =
+        '\$ ${_formatCurrency(user.employeeProfile?.salary ?? 0.0)}';
+    _addressController.text = 'No especificada';
+    _bankController.text = user.employeeProfile?.bankName?.isNotEmpty == true
+        ? user.employeeProfile!.bankName!
+        : 'No especificado';
+    _accountController.text =
+        user.employeeProfile?.bankAccount?.isNotEmpty == true
+        ? user.employeeProfile!.bankAccount!
+        : 'No especificada';
+    _selectedCompanyId = user.employeeProfile?.companyId;
+    _companyController.text =
+        user.employeeProfile?.companyName?.isNotEmpty == true
+        ? user.employeeProfile!.companyName!
+        : 'No especificada';
+  }
+
   String _formatCurrency(double value) {
     String result = value.toStringAsFixed(0);
     result = result.replaceAllMapped(
@@ -100,36 +139,8 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.user;
-        
-        // Inicializar controllers con datos del usuario
-        _nameController = TextEditingController(
-          text: user?.firstName != null && user?.lastName != null
-              ? '${user?.firstName} ${user?.lastName}'
-              : user?.firstName ?? user?.username ?? 'Usuario',
-        );
-        _emailController = TextEditingController(text: user?.email ?? '');
-        _idController = TextEditingController(text: user?.documentNumber ?? '');
-        _salaryController = TextEditingController(
-          text: '\$ ${_formatCurrency(user?.employeeProfile?.salary ?? 0.0)}',
-        );
-        _addressController = TextEditingController(text: 'No especificada');
-        _bankController = TextEditingController(
-          text: user?.employeeProfile?.bankName?.isNotEmpty == true
-              ? user!.employeeProfile!.bankName!
-              : 'No especificado',
-        );
-        _accountController = TextEditingController(
-          text: user?.employeeProfile?.bankAccount?.isNotEmpty == true
-              ? user!.employeeProfile!.bankAccount!
-              : 'No especificada',
-        );
-        _selectedCompanyId = user?.employeeProfile?.companyId;
-        _companyController = TextEditingController(
-          text: user?.employeeProfile?.companyName?.isNotEmpty == true
-              ? user!.employeeProfile!.companyName!
-              : 'No especificada',
-        );
-        
+        _syncControllersFromUser(user);
+
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
           endDrawer: const EmployeeNotificationsDrawer(),
@@ -286,8 +297,13 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF374151),
                         side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ],
@@ -321,7 +337,8 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   label: 'Salario',
                   controller: _salaryController,
                   enabled: false,
-                  helperText: 'Contacta a tu empleador para modificar tu salario',
+                  helperText:
+                      'Contacta a tu empleador para modificar tu salario',
                 ),
                 const SizedBox(height: 16),
                 _buildFormField(
@@ -332,14 +349,14 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                 ),
                 const SizedBox(height: 16),
                 // Campo de empresa
-                _isEditing 
-                  ? _buildCompanyDropdown()
-                  : _buildFormField(
-                      icon: Icons.business_outlined,
-                      label: 'Empresa',
-                      controller: _companyController,
-                      enabled: false,
-                    ),
+                _isEditing
+                    ? _buildCompanyDropdown()
+                    : _buildFormField(
+                        icon: Icons.business_outlined,
+                        label: 'Empresa',
+                        controller: _companyController,
+                        enabled: false,
+                      ),
                 const SizedBox(height: 16),
                 _buildBankDropdown(
                   context: context,
@@ -391,9 +408,15 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildBulletPoint('Mantén tu información actualizada para recibir tus adelantos'),
-                _buildBulletPoint('Verifica que tu número de cuenta esté correcto'),
-                _buildBulletPoint('Los cambios en salario deben ser realizados por tu empleador'),
+                _buildBulletPoint(
+                  'Mantén tu información actualizada para recibir tus adelantos',
+                ),
+                _buildBulletPoint(
+                  'Verifica que tu número de cuenta esté correcto',
+                ),
+                _buildBulletPoint(
+                  'Los cambios en salario deben ser realizados por tu empleador',
+                ),
               ],
             ),
           ),
@@ -447,7 +470,8 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   label: 'Contraseña actual',
                   controller: _currentPassController,
                   obscure: _obscureCurrent,
-                  onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                  onToggle: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
                 ),
                 const SizedBox(height: 16),
                 // Campo nueva contraseña
@@ -463,7 +487,8 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   label: 'Confirmar nueva contraseña',
                   controller: _confirmPassController,
                   obscure: _obscureConfirm,
-                  onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  onToggle: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
                 const SizedBox(height: 16),
                 // Info box amarillo
@@ -471,7 +496,10 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   decoration: BoxDecoration(
                     color: const Color(0xFFFCFBD4),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFEF08A), width: 1),
+                    border: Border.all(
+                      color: const Color(0xFFFEF08A),
+                      width: 1,
+                    ),
                   ),
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -495,8 +523,14 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                         ],
                       ),
                       const SizedBox(height: 8),
-                      _buildBulletPoint('Mínimo 6 caracteres', color: const Color(0xFFA16207)),
-                      _buildBulletPoint('Se recomienda usar letras, números y símbolos', color: const Color(0xFFA16207)),
+                      _buildBulletPoint(
+                        'Mínimo 6 caracteres',
+                        color: const Color(0xFFA16207),
+                      ),
+                      _buildBulletPoint(
+                        'Se recomienda usar letras, números y símbolos',
+                        color: const Color(0xFFA16207),
+                      ),
                     ],
                   ),
                 ),
@@ -518,7 +552,9 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                       backgroundColor: const Color(0xFF111827),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
@@ -556,9 +592,18 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildBulletPoint('Cambia tu contraseña regularmente', color: const Color(0xFF1E40AF)),
-                _buildBulletPoint('No compartas tu contraseña con nadie', color: const Color(0xFF1E40AF)),
-                _buildBulletPoint('Usa una contraseña única para esta plataforma', color: const Color(0xFF1E40AF)),
+                _buildBulletPoint(
+                  'Cambia tu contraseña regularmente',
+                  color: const Color(0xFF1E40AF),
+                ),
+                _buildBulletPoint(
+                  'No compartas tu contraseña con nadie',
+                  color: const Color(0xFF1E40AF),
+                ),
+                _buildBulletPoint(
+                  'Usa una contraseña única para esta plataforma',
+                  color: const Color(0xFF1E40AF),
+                ),
               ],
             ),
           ),
@@ -600,7 +645,9 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF3F4F6),
+            fillColor: enabled
+                ? const Color(0xFFF9FAFB)
+                : const Color(0xFFF3F4F6),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
@@ -615,19 +662,22 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF2563EB),
+                width: 1.5,
+              ),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
           ),
         ),
         if (helperText != null) ...[
           const SizedBox(height: 4),
           Text(
             helperText,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
           ),
         ],
       ],
@@ -664,7 +714,11 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       children: [
         Row(
           children: [
-            const Icon(Icons.account_balance_outlined, size: 18, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.account_balance_outlined,
+              size: 18,
+              color: Color(0xFF6B7280),
+            ),
             const SizedBox(width: 8),
             const Text(
               'Banco',
@@ -684,7 +738,9 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF3F4F6),
+              color: enabled
+                  ? const Color(0xFFF9FAFB)
+                  : const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(10),
               border: enabled
                   ? Border.all(color: const Color(0xFFE5E7EB))
@@ -699,8 +755,8 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                     color: value == 'No especificado'
                         ? Colors.grey[500]
                         : enabled
-                            ? const Color(0xFF111827)
-                            : Colors.grey[500],
+                        ? const Color(0xFF111827)
+                        : Colors.grey[500],
                   ),
                 ),
                 Icon(
@@ -740,7 +796,11 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       children: [
         Row(
           children: [
-            const Icon(Icons.business_outlined, size: 18, color: Color(0xFF6B7280)),
+            const Icon(
+              Icons.business_outlined,
+              size: 18,
+              color: Color(0xFF6B7280),
+            ),
             const SizedBox(width: 8),
             const Text(
               'Empresa',
@@ -781,71 +841,170 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
   void _showCompanySelector() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          top: false,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.72,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Seleccionar empresa',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Seleccionar empresa',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _availableCompanies.length,
-                  itemBuilder: (context, index) {
-                    final company = _availableCompanies[index];
-                    final isSelected = company['id'] == _selectedCompanyId;
-                    return ListTile(
-                      leading: Icon(
-                        Icons.business,
-                        color: isSelected ? const Color(0xFF2563EB) : Colors.grey[400],
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        color: const Color(0xFF6B7280),
+                        onPressed: () => Navigator.pop(sheetContext),
                       ),
-                      title: Text(company['name']),
-                      subtitle: company['legal_name'] != null 
-                        ? Text(company['legal_name'], style: TextStyle(fontSize: 12, color: Colors.grey[600]))
-                        : null,
-                      trailing: isSelected
-                          ? const Icon(Icons.check, color: Color(0xFF2563EB))
-                          : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedCompanyId = company['id'];
-                          _companyController.text = company['name'];
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+                    itemCount: _availableCompanies.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (itemContext, index) {
+                      final company = _availableCompanies[index];
+                      final isSelected = company['id'] == _selectedCompanyId;
+                      final legalName = company['legal_name']?.toString();
+
+                      return Material(
+                        color: isSelected
+                            ? const Color(0xFFEFF6FF)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            setState(() {
+                              _selectedCompanyId = company['id'];
+                              _companyController.text =
+                                  company['name']?.toString() ?? '';
+                            });
+                            Navigator.pop(sheetContext);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFFDBEAFE)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFF93C5FD)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.business_outlined,
+                                    color: isSelected
+                                        ? const Color(0xFF2563EB)
+                                        : const Color(0xFF94A3B8),
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        company['name']?.toString() ??
+                                            'Empresa',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                      if (legalName != null &&
+                                          legalName.trim().isNotEmpty) ...[
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          legalName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF2563EB),
+                                    size: 22,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  void _showBankSelector(BuildContext context, String currentValue, Function(String) onChanged) {
+  void _showBankSelector(
+    BuildContext context,
+    String currentValue,
+    Function(String) onChanged,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -859,9 +1018,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
+                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
                 ),
                 child: Row(
                   children: [
@@ -886,12 +1043,15 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
                   itemCount: _banks.length,
                   itemBuilder: (context, index) {
                     final bank = _banks[index];
-                    final isSelected = bank == currentValue ||
+                    final isSelected =
+                        bank == currentValue ||
                         (currentValue == 'No especificado' && index == 0);
                     return ListTile(
                       leading: Icon(
                         Icons.account_balance,
-                        color: isSelected ? const Color(0xFF2563EB) : Colors.grey[400],
+                        color: isSelected
+                            ? const Color(0xFF2563EB)
+                            : Colors.grey[400],
                       ),
                       title: Text(bank),
                       trailing: isSelected
@@ -921,18 +1081,27 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
-      
+
       try {
         // Llamar al endpoint para unirse a la empresa
-        await apiService.post('/api/employee-profiles/join-company/', data: {
-          'company_id': _selectedCompanyId,
-        });
-        
+        await apiService.post(
+          '/api/employee-profiles/join-company/',
+          data: {
+            'company_id': _selectedCompanyId,
+            'bank_name': _bankController.text == 'No especificado'
+                ? ''
+                : _bankController.text,
+            'bank_account': _accountController.text == 'No especificada'
+                ? ''
+                : _accountController.text,
+          },
+        );
+
         if (!mounted) return;
-        
+
         // Cerrar loading
         Navigator.pop(context);
-        
+
         // Mostrar mensaje de éxito
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -940,19 +1109,20 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
             backgroundColor: Color(0xFF059669),
           ),
         );
-        
+
         // Refrescar el perfil para actualizar la empresa
         await context.read<AuthProvider>().refreshProfile();
-        
+
         setState(() {
+          _syncedUserId = null;
           _isEditing = false;
         });
       } catch (e) {
         if (!mounted) return;
-        
+
         // Cerrar loading
         Navigator.pop(context);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al unirse a la empresa: ${e.toString()}'),
@@ -972,7 +1142,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     final oldPassword = _currentPassController.text.trim();
     final newPassword = _newPassController.text.trim();
     final confirmPassword = _confirmPassController.text.trim();
-    
+
     // Validaciones
     if (oldPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -983,7 +1153,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       );
       return;
     }
-    
+
     if (newPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -993,7 +1163,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       );
       return;
     }
-    
+
     if (newPassword.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1003,7 +1173,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       );
       return;
     }
-    
+
     if (newPassword != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1013,7 +1183,7 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       );
       return;
     }
-    
+
     if (oldPassword == newPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1023,35 +1193,35 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       );
       return;
     }
-    
+
     // Mostrar loading
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
-    
+
     // Guardar referencias antes del await
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
+
     try {
       final authService = context.read<AuthService>();
       await authService.changePassword(
         oldPassword: oldPassword,
         newPassword: newPassword,
       );
-      
+
       if (!mounted) return;
-      
+
       // Cerrar loading
       navigator.pop();
-      
+
       // Limpiar campos
       _currentPassController.clear();
       _newPassController.clear();
       _confirmPassController.clear();
-      
+
       scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text('Contraseña actualizada exitosamente'),
@@ -1060,10 +1230,10 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
       );
     } catch (e) {
       if (!mounted) return;
-      
+
       // Cerrar loading
       navigator.pop();
-      
+
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -1098,22 +1268,27 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
             filled: true,
             fillColor: const Color(0xFFF9FAFB),
             hintText: '••••••',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 14,
-            ),
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF2563EB),
+                width: 1.5,
+              ),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             suffixIcon: IconButton(
               icon: Icon(
-                obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                obscure
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 color: const Color(0xFF6B7280),
                 size: 20,
               ),
@@ -1125,21 +1300,23 @@ class _EmployeeProfilePageState extends State<EmployeeProfilePage>
     );
   }
 
-  Widget _buildBulletPoint(String text, {Color color = const Color(0xFF1E40AF)}) {
+  Widget _buildBulletPoint(
+    String text, {
+    Color color = const Color(0xFF1E40AF),
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('• ', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          Text(
+            '• ',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 13,
-                color: color,
-                height: 1.3,
-              ),
+              style: TextStyle(fontSize: 13, color: color, height: 1.3),
             ),
           ),
         ],

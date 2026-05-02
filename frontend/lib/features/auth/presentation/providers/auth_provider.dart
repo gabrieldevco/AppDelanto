@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 import '../../data/models/user_model.dart';
 import '../../data/services/auth_service.dart';
 import '../../../../core/services/api_service.dart';
-import '../../../employer/presentation/widgets/employer_notifications_drawer.dart';
-import '../../../admin/presentation/widgets/admin_notifications_drawer.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
-  
+
   AuthStatus _status = AuthStatus.initial;
   UserModel? _user;
   String? _errorMessage;
@@ -37,7 +35,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.initialize();
-      
+
       if (_authService.isAuthenticated) {
         _user = await _authService.getProfile();
         _status = AuthStatus.authenticated;
@@ -48,22 +46,16 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.unauthenticated;
       _errorMessage = e.toString();
     }
-    
+
     notifyListeners();
   }
 
   // Login
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     _status = AuthStatus.loading;
     _errorMessage = null;
-    _token = null;  // Limpiar token anterior
-    _user = null;  // Limpiar usuario anterior
-    // Limpiar notificaciones de todos los roles
-    EmployerNotificationProvider.clearNotifications();
-    AdminNotificationProvider.clearNotifications();
+    _token = null; // Limpiar token anterior
+    _user = null; // Limpiar usuario anterior
     notifyListeners();
 
     try {
@@ -71,9 +63,9 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
       );
-      
+
       _token = response['token'];
-      
+
       // Obtener perfil después de login
       _user = await _authService.getProfile();
       _status = AuthStatus.authenticated;
@@ -127,7 +119,7 @@ class AuthProvider extends ChangeNotifier {
         bankAccount: bankAccount,
         bankName: bankName,
       );
-      
+
       _token = response['token'];
       _user = await _authService.getProfile();
       _status = AuthStatus.authenticated;
@@ -135,7 +127,7 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = AuthStatus.error;
-      
+
       // Mostrar mensaje exacto del backend
       String errorMsg = e.toString();
       // Limpiar el prefijo "ApiException: " si existe
@@ -146,7 +138,7 @@ class AuthProvider extends ChangeNotifier {
       if (errorMsg.contains(' (Status:')) {
         errorMsg = errorMsg.split(' (Status:')[0];
       }
-      
+
       _errorMessage = errorMsg;
       notifyListeners();
       return false;
@@ -168,9 +160,6 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _status = AuthStatus.unauthenticated;
     _errorMessage = null;
-    // Limpiar notificaciones al cerrar sesión
-    EmployerNotificationProvider.clearNotifications();
-    AdminNotificationProvider.clearNotifications();
     notifyListeners();
   }
 
@@ -194,7 +183,7 @@ class AuthProvider extends ChangeNotifier {
         bankAccount: bankAccount,
         bankName: bankName,
       );
-      
+
       _user = updatedUser;
       notifyListeners();
       return true;
@@ -226,7 +215,7 @@ class AuthProvider extends ChangeNotifier {
   // Refrescar perfil
   Future<void> refreshProfile() async {
     if (!isAuthenticated) return;
-    
+
     try {
       _user = await _authService.getProfile();
       notifyListeners();

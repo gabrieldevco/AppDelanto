@@ -39,7 +39,7 @@ class _EmployeeNotificationsDrawerState
                     children: [
                       const Icon(
                         Icons.notifications_outlined,
-                        color: Color(0xFF2563EB),
+                        color: Color(0xFFDC2626),
                         size: 24,
                       ),
                       const SizedBox(width: 12),

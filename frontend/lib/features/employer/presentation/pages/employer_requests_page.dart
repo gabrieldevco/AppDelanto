@@ -341,6 +341,9 @@ class _EmployerRequestsPageState extends State<EmployerRequestsPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? 'Solicitud aprobada' : 'No se pudo aprobar')),
     );
+    if (ok) {
+      _tabController.animateTo(1);
+    }
     await _load();
   }
 
@@ -385,6 +388,9 @@ class _EmployerRequestsPageState extends State<EmployerRequestsPage>
         content: Text(ok ? 'Solicitud rechazada' : 'No se pudo rechazar'),
       ),
     );
+    if (ok) {
+      _tabController.animateTo(2);
+    }
     await _load();
   }
 

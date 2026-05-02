@@ -16,6 +16,9 @@ class EmployeeRequestPage extends StatefulWidget {
 class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   double _amount = 100000;
   double _days = 25;
+  final TextEditingController _amountController = TextEditingController(
+    text: '100000',
+  );
 
   double _minAmount = 50000;
   double _maxConfigAmount = 1000000;
@@ -33,6 +36,12 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
   double get _total {
     return _amount + _fee + _interest;
   }
@@ -40,6 +49,27 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   double _toDouble(dynamic value) => value is num
       ? value.toDouble()
       : double.tryParse(value?.toString() ?? '') ?? 0;
+
+  void _setAmount(double value, double maxAmount, {bool updateText = false}) {
+    final clamped = value.clamp(_minAmount, maxAmount).toDouble();
+    setState(() {
+      _amount = clamped;
+      if (updateText) {
+        _amountController.text = clamped.toStringAsFixed(0);
+        _amountController.selection = TextSelection.collapsed(
+          offset: _amountController.text.length,
+        );
+      }
+    });
+    _calculateAdvance();
+  }
+
+  void _commitTypedAmount(double maxAmount) {
+    final typed = double.tryParse(
+      _amountController.text.replaceAll('.', '').replaceAll(',', '.').trim(),
+    );
+    _setAmount(typed ?? _minAmount, maxAmount, updateText: true);
+  }
 
   Future<void> _calculateAdvance() async {
     if (!mounted) return;
@@ -266,6 +296,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         // Ajustar monto inicial si es mayor al máximo
         if (_amount > maxAmount) {
           _amount = maxAmount > _minAmount ? maxAmount : _minAmount;
+          _amountController.text = _amount.toStringAsFixed(0);
         }
 
         return Scaffold(
@@ -328,9 +359,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                               ),
                               const SizedBox(height: 8),
                               TextField(
-                                controller: TextEditingController(
-                                  text: _amount.toStringAsFixed(0),
-                                ),
+                                controller: _amountController,
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
                                   prefixText: '\$ ',
@@ -350,21 +379,23 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                                   ),
                                 ),
                                 onChanged: (value) {
-                                  setState(() {
-                                    _amount =
-                                        double.tryParse(
-                                          value.replaceAll('.', ''),
-                                        ) ??
-                                        _minAmount;
-                                    if (_amount > maxAmount) {
-                                      _amount = maxAmount;
-                                    }
-                                    if (_amount < _minAmount) {
-                                      _amount = _minAmount;
-                                    }
-                                  });
-                                  _calculateAdvance();
+                                  final typed = double.tryParse(
+                                    value
+                                        .replaceAll('.', '')
+                                        .replaceAll(',', '.')
+                                        .trim(),
+                                  );
+                                  if (typed == null) return;
+                                  if (typed >= _minAmount &&
+                                      typed <= maxAmount) {
+                                    setState(() => _amount = typed);
+                                    _calculateAdvance();
+                                  }
                                 },
+                                onEditingComplete: () =>
+                                    _commitTypedAmount(maxAmount),
+                                onTapOutside: (_) =>
+                                    _commitTypedAmount(maxAmount),
                               ),
                               const SizedBox(height: 20),
                               const Text(
@@ -388,10 +419,11 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
                                   min: _minAmount,
                                   max: maxAmount,
                                   onChanged: (value) {
-                                    setState(() {
-                                      _amount = value;
-                                    });
-                                    _calculateAdvance();
+                                    _setAmount(
+                                      value,
+                                      maxAmount,
+                                      updateText: true,
+                                    );
                                   },
                                 ),
                               ),

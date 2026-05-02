@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../advances/data/models/advance_model.dart';
 import '../../../advances/presentation/providers/advance_provider.dart';
 import '../../../companies/presentation/providers/company_provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../widgets/employer_bottom_nav.dart';
 import '../widgets/employer_header.dart';
 import '../widgets/employer_notifications_drawer.dart';
@@ -26,13 +27,14 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
   Future<void> _loadData() async {
     final companyProvider = context.read<CompanyProvider>();
     final advanceProvider = context.read<AdvanceProvider>();
+    final notificationProvider = context.read<NotificationProvider>();
     await companyProvider.loadMyCompany();
     await Future.wait([
       companyProvider.loadEmployees(active: true),
       companyProvider.loadSummary(),
       advanceProvider.loadMyAdvances(),
     ]);
-    await EmployerNotificationProvider.loadUnreadCount();
+    await notificationProvider.refreshUnreadCount();
     if (mounted) setState(() {});
   }
 
@@ -61,11 +63,11 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final totalDisbursed = advances
-                        .where((a) => a.isDisbursed || a.isRecovered)
+                    final totalAdvanced = advances
+                        .where(_countsForTotalAdvanced)
                         .fold<double>(0, (sum, a) => sum + a.amount);
                     final pendingDiscount = advances
-                        .where((a) => a.isDisbursed)
+                        .where(_countsAsPendingDiscount)
                         .fold<double>(0, (sum, a) => sum + a.amount);
 
                     return ListView(
@@ -90,7 +92,7 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
                         const SizedBox(height: 22),
                         _buildMetricsCards(
                           employeeCount: employees.length,
-                          totalDisbursed: totalDisbursed,
+                          totalAdvanced: totalAdvanced,
                           pendingDiscount: pendingDiscount,
                           requestCount: advances.length,
                         ),
@@ -113,7 +115,7 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
 
   Widget _buildMetricsCards({
     required int employeeCount,
-    required double totalDisbursed,
+    required double totalAdvanced,
     required double pendingDiscount,
     required int requestCount,
   }) {
@@ -134,7 +136,7 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
             Expanded(
               child: _buildMetricCard(
                 title: 'Adelantado',
-                value: _money(totalDisbursed),
+                value: _money(totalAdvanced),
                 icon: Icons.attach_money,
                 bgColor: const Color(0xFF059669),
                 textColor: Colors.white,
@@ -363,6 +365,14 @@ class _EmployerMainPageState extends State<EmployerMainPage> {
       'rejected' || 'cancelled' => const Color(0xFFDC2626),
       _ => const Color(0xFFF59E0B),
     };
+  }
+
+  bool _countsForTotalAdvanced(AdvanceModel advance) {
+    return advance.isApproved || advance.isDisbursed || advance.isRecovered;
+  }
+
+  bool _countsAsPendingDiscount(AdvanceModel advance) {
+    return advance.isApproved || advance.isDisbursed;
   }
 
   String _shortDate(DateTime date) => '${date.day}/${date.month}/${date.year}';

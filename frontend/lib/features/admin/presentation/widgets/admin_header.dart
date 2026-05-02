@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../pages/admin_help_page.dart';
 import '../pages/admin_profile_page.dart';
-import 'admin_notifications_drawer.dart';
 
 class AdminHeader extends StatefulWidget {
   const AdminHeader({super.key});
@@ -14,10 +14,12 @@ class AdminHeader extends StatefulWidget {
 }
 
 class _AdminHeaderState extends State<AdminHeader> {
-  int get _unreadCount => AdminNotificationProvider.unreadCount;
-
-  void _refresh() {
-    setState(() {});
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().refreshUnreadCount();
+    });
   }
 
   @override
@@ -61,21 +63,30 @@ class _AdminHeaderState extends State<AdminHeader> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  displayName,
-                  style: TextStyle(
+                  'AppDelanta',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF111827),
                   ),
                 ),
-                const Text(
-                  'Administrador',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                Text(
+                  '$displayName - Admin',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),
           ),
-          _buildNotificationIcon(context),
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, _) {
+              return _buildNotificationIcon(context, notificationProvider);
+            },
+          ),
           IconButton(
             onPressed: () {
               Navigator.push(
@@ -119,17 +130,18 @@ class _AdminHeaderState extends State<AdminHeader> {
     );
   }
 
-  Widget _buildNotificationIcon(BuildContext context) {
+  Widget _buildNotificationIcon(
+    BuildContext context,
+    NotificationProvider notificationProvider,
+  ) {
+    final unreadCount = notificationProvider.unreadCount;
+
     return Stack(
       children: [
         IconButton(
           onPressed: () {
             Scaffold.of(context).openEndDrawer();
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (mounted) _refresh();
-              });
-            });
+            notificationProvider.loadNotifications();
           },
           icon: const Icon(
             Icons.notifications_outlined,
@@ -139,7 +151,7 @@ class _AdminHeaderState extends State<AdminHeader> {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
-        if (_unreadCount > 0)
+        if (unreadCount > 0)
           Positioned(
             right: 2,
             top: 2,
@@ -152,7 +164,7 @@ class _AdminHeaderState extends State<AdminHeader> {
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               child: Center(
                 child: Text(
-                  _unreadCount > 9 ? '9+' : '$_unreadCount',
+                  unreadCount > 9 ? '9+' : '$unreadCount',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 9,

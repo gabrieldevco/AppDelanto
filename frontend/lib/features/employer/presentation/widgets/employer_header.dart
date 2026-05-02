@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../pages/employer_help_page.dart';
 import '../pages/employer_profile_page.dart';
-import 'employer_notifications_drawer.dart';
 
 class EmployerHeader extends StatefulWidget {
   const EmployerHeader({super.key});
@@ -14,19 +14,12 @@ class EmployerHeader extends StatefulWidget {
 }
 
 class _EmployerHeaderState extends State<EmployerHeader> {
-  int get _unreadCount => EmployerNotificationProvider.unreadCount;
-
   @override
   void initState() {
     super.initState();
-    _loadUnreadCount();
-  }
-
-  Future<void> _loadUnreadCount() async {
-    try {
-      await EmployerNotificationProvider.loadUnreadCount();
-      if (mounted) setState(() {});
-    } catch (_) {}
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().refreshUnreadCount();
+    });
   }
 
   @override
@@ -86,7 +79,11 @@ class _EmployerHeaderState extends State<EmployerHeader> {
                   ],
                 ),
               ),
-              _buildNotificationIcon(context),
+              Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, _) {
+                  return _buildNotificationIcon(context, notificationProvider);
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.help_outline, size: 20),
                 color: const Color(0xFF6B7280),
@@ -127,7 +124,12 @@ class _EmployerHeaderState extends State<EmployerHeader> {
     );
   }
 
-  Widget _buildNotificationIcon(BuildContext context) {
+  Widget _buildNotificationIcon(
+    BuildContext context,
+    NotificationProvider notificationProvider,
+  ) {
+    final unreadCount = notificationProvider.unreadCount;
+
     return Stack(
       children: [
         IconButton(
@@ -137,10 +139,10 @@ class _EmployerHeaderState extends State<EmployerHeader> {
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           onPressed: () {
             Scaffold.of(context).openEndDrawer();
-            _loadUnreadCount();
+            notificationProvider.loadNotifications();
           },
         ),
-        if (_unreadCount > 0)
+        if (unreadCount > 0)
           Positioned(
             right: 2,
             top: 2,
@@ -153,7 +155,7 @@ class _EmployerHeaderState extends State<EmployerHeader> {
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               child: Center(
                 child: Text(
-                  _unreadCount > 9 ? '9+' : '$_unreadCount',
+                  unreadCount > 9 ? '9+' : '$unreadCount',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 9,

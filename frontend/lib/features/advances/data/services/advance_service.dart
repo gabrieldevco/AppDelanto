@@ -110,6 +110,13 @@ class AdvanceService {
     return AdvanceModel.fromJson(response);
   }
 
+  Future<AdvanceModel> undisburseAdvance(int id) async {
+    final response = await _apiService.post(
+      '${ApiConstants.advances}$id/undisburse/',
+    );
+    return AdvanceModel.fromJson(response);
+  }
+
   // Cancelar solicitud propia (empleado)
   Future<AdvanceModel> cancelAdvance(int id) async {
     final response = await _apiService.post(

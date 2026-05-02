@@ -2,6 +2,11 @@ class AdvanceModel {
   final int id;
   final int employeeId;
   final String employeeName;
+  final String? employeeEmail;
+  final String? employeePhone;
+  final String? employeeDocument;
+  final String? employeeBankName;
+  final String? employeeBankAccount;
   final int companyId;
   final String companyName;
   final double amount;
@@ -22,6 +27,11 @@ class AdvanceModel {
     required this.id,
     required this.employeeId,
     required this.employeeName,
+    this.employeeEmail,
+    this.employeePhone,
+    this.employeeDocument,
+    this.employeeBankName,
+    this.employeeBankAccount,
     required this.companyId,
     required this.companyName,
     required this.amount,
@@ -44,6 +54,11 @@ class AdvanceModel {
       id: json['id'],
       employeeId: json['employee'],
       employeeName: json['employee_name'] ?? 'Desconocido',
+      employeeEmail: json['employee_email'],
+      employeePhone: json['employee_phone'],
+      employeeDocument: json['employee_document'],
+      employeeBankName: json['employee_bank_name'],
+      employeeBankAccount: json['employee_bank_account'],
       companyId: json['company'],
       companyName: json['company_name'] ?? 'Desconocida',
       amount: double.parse(json['amount'].toString()),
@@ -73,6 +88,11 @@ class AdvanceModel {
       'id': id,
       'employee': employeeId,
       'employee_name': employeeName,
+      'employee_email': employeeEmail,
+      'employee_phone': employeePhone,
+      'employee_document': employeeDocument,
+      'employee_bank_name': employeeBankName,
+      'employee_bank_account': employeeBankAccount,
       'company': companyId,
       'company_name': companyName,
       'amount': amount,
@@ -121,6 +141,11 @@ class AdvanceModel {
     int? id,
     int? employeeId,
     String? employeeName,
+    String? employeeEmail,
+    String? employeePhone,
+    String? employeeDocument,
+    String? employeeBankName,
+    String? employeeBankAccount,
     int? companyId,
     String? companyName,
     double? amount,
@@ -141,6 +166,11 @@ class AdvanceModel {
       id: id ?? this.id,
       employeeId: employeeId ?? this.employeeId,
       employeeName: employeeName ?? this.employeeName,
+      employeeEmail: employeeEmail ?? this.employeeEmail,
+      employeePhone: employeePhone ?? this.employeePhone,
+      employeeDocument: employeeDocument ?? this.employeeDocument,
+      employeeBankName: employeeBankName ?? this.employeeBankName,
+      employeeBankAccount: employeeBankAccount ?? this.employeeBankAccount,
       companyId: companyId ?? this.companyId,
       companyName: companyName ?? this.companyName,
       amount: amount ?? this.amount,
@@ -153,7 +183,8 @@ class AdvanceModel {
       disbursedAt: disbursedAt ?? this.disbursedAt,
       recoveryDate: recoveryDate ?? this.recoveryDate,
       approvedByName: approvedByName ?? this.approvedByName,
-      disbursementReference: disbursementReference ?? this.disbursementReference,
+      disbursementReference:
+          disbursementReference ?? this.disbursementReference,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

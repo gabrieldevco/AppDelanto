@@ -1,48 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../../../core/services/api_service.dart';
 import '../../../notifications/data/models/notification_model.dart';
-import '../../../notifications/data/services/notification_service.dart';
-
-class EmployerNotificationProvider {
-  static final NotificationService _service = NotificationService(apiService);
-  static List<NotificationModel> _notifications = [];
-  static int _unreadCount = 0;
-
-  static List<NotificationModel> get notifications => _notifications;
-  static int get unreadCount => _unreadCount;
-
-  static Future<void> loadNotifications() async {
-    _notifications = await _service.getNotifications();
-    _unreadCount = _notifications.where((n) => !n.isRead).length;
-  }
-
-  static Future<void> loadUnreadCount() async {
-    _unreadCount = await _service.getUnreadCount();
-  }
-
-  static Future<void> markAsRead(int id) async {
-    final updated = await _service.markAsRead(id);
-    final index = _notifications.indexWhere((n) => n.id == id);
-    if (index != -1) {
-      _notifications[index] = updated;
-    }
-    _unreadCount = _notifications.where((n) => !n.isRead).length;
-  }
-
-  static Future<void> markAllAsRead() async {
-    await _service.markAllAsRead();
-    _notifications = _notifications
-        .map((n) => n.copyWith(isRead: true, readAt: DateTime.now()))
-        .toList();
-    _unreadCount = 0;
-  }
-
-  static void clearNotifications() {
-    _notifications = [];
-    _unreadCount = 0;
-  }
-}
+import '../../../notifications/presentation/providers/notification_provider.dart';
 
 class EmployerNotificationsDrawer extends StatefulWidget {
   const EmployerNotificationsDrawer({super.key});
@@ -54,115 +14,101 @@ class EmployerNotificationsDrawer extends StatefulWidget {
 
 class _EmployerNotificationsDrawerState
     extends State<EmployerNotificationsDrawer> {
-  bool _isLoading = true;
-  String? _error;
-
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().loadNotifications();
     });
-    try {
-      await EmployerNotificationProvider.loadNotifications();
-    } catch (e) {
-      _error = 'No se pudieron cargar las notificaciones';
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _markAsRead(int id) async {
-    await EmployerNotificationProvider.markAsRead(id);
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _markAllAsRead() async {
-    await EmployerNotificationProvider.markAllAsRead();
-    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final notifications = EmployerNotificationProvider.notifications;
-    final unreadCount = EmployerNotificationProvider.unreadCount;
+    return Consumer<NotificationProvider>(
+      builder: (context, provider, _) {
+        final notifications = provider.notifications;
 
+        return Container(
+          width: MediaQuery.of(context).size.width * 0.88,
+          color: const Color(0xFFF8FAFC),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(context, provider),
+                Expanded(
+                  child: provider.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : notifications.isEmpty
+                      ? _buildMessage(
+                          Icons.notifications_off_outlined,
+                          'No tienes notificaciones',
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => provider.loadNotifications(),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: notifications.length,
+                            itemBuilder: (context, index) {
+                              return _buildNotificationCard(
+                                context,
+                                notifications[index],
+                              );
+                            },
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, NotificationProvider provider) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.88,
-      color: const Color(0xFFF8FAFC),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.notifications_outlined,
-                    color: Color(0xFF2563EB),
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Notificaciones',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF111827),
-                      ),
-                    ),
-                  ),
-                  if (unreadCount > 0)
-                    TextButton.icon(
-                      onPressed: _markAllAsRead,
-                      icon: const Icon(Icons.done_all, size: 18),
-                      label: const Text('Marcar todo'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
-                      ),
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+      padding: const EdgeInsets.all(16),
+      color: Colors.white,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.notifications_outlined,
+            color: Color(0xFF2563EB),
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Notificaciones',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827),
               ),
             ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? _buildMessage(Icons.wifi_off, _error!)
-                  : notifications.isEmpty
-                  ? _buildMessage(
-                      Icons.notifications_off_outlined,
-                      'No tienes notificaciones',
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: notifications.length,
-                        itemBuilder: (context, index) {
-                          return _buildNotificationCard(notifications[index]);
-                        },
-                      ),
-                    ),
+          ),
+          if (provider.unreadCount > 0)
+            TextButton.icon(
+              onPressed: provider.markAllAsRead,
+              icon: const Icon(Icons.done_all, size: 18),
+              label: const Text('Marcar todo'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF2563EB),
+              ),
             ),
-          ],
-        ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildNotificationCard(NotificationModel notification) {
+  Widget _buildNotificationCard(
+    BuildContext context,
+    NotificationModel notification,
+  ) {
     final unread = !notification.isRead;
     final iconColor = switch (notification.type) {
       'success' => const Color(0xFF059669),
@@ -178,7 +124,10 @@ class _EmployerNotificationsDrawerState
     };
 
     return InkWell(
-      onTap: unread ? () => _markAsRead(notification.id) : null,
+      onTap: unread
+          ? () =>
+                context.read<NotificationProvider>().markAsRead(notification.id)
+          : null,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -226,7 +175,7 @@ class _EmployerNotificationsDrawerState
                           width: 8,
                           height: 8,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF2563EB),
+                            color: Color(0xFFDC2626),
                             shape: BoxShape.circle,
                           ),
                         ),

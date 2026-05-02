@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../advances/data/models/advance_model.dart';
 import '../../../advances/presentation/providers/advance_provider.dart';
 import '../../../companies/data/models/company_model.dart';
 import '../../../companies/presentation/providers/company_provider.dart';
@@ -76,7 +77,7 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
                         (a) =>
                             a.createdAt.month == DateTime.now().month &&
                             a.createdAt.year == DateTime.now().year &&
-                            (a.isDisbursed || a.isRecovered),
+                            _countsForMonthlyTotal(a),
                       )
                       .fold<double>(0, (sum, a) => sum + a.amount);
                   final maxAvailable = allEmployees.fold<double>(
@@ -140,6 +141,7 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
                           ...employees.map(
                             (employee) => _buildEmployeeCard(
                               employee,
+                              _employeeActiveAdvance(employee, advanceProvider),
                               _employeeMonthTotal(employee, advanceProvider),
                             ),
                           ),
@@ -163,9 +165,26 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
               a.employeeId == employee.id &&
               a.createdAt.month == DateTime.now().month &&
               a.createdAt.year == DateTime.now().year &&
-              (a.isDisbursed || a.isRecovered),
+              _countsForMonthlyTotal(a),
         )
         .fold<double>(0, (sum, a) => sum + a.amount);
+  }
+
+  double _employeeActiveAdvance(
+    EmployeeModel employee,
+    AdvanceProvider provider,
+  ) {
+    return provider.advances
+        .where((a) => a.employeeId == employee.id && _countsAsUsed(a))
+        .fold<double>(0, (sum, a) => sum + a.amount);
+  }
+
+  bool _countsForMonthlyTotal(AdvanceModel advance) {
+    return advance.isApproved || advance.isDisbursed || advance.isRecovered;
+  }
+
+  bool _countsAsUsed(AdvanceModel advance) {
+    return advance.isApproved || advance.isDisbursed;
   }
 
   Widget _buildMetricCard({
@@ -269,12 +288,14 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
     );
   }
 
-  Widget _buildEmployeeCard(EmployeeModel employee, double monthTotal) {
+  Widget _buildEmployeeCard(
+    EmployeeModel employee,
+    double activeAdvance,
+    double monthTotal,
+  ) {
     final maxLimit = employee.salary * 0.5;
-    final used = (maxLimit - employee.availableAdvanceLimit).clamp(
-      0.0,
-      maxLimit,
-    );
+    final used = activeAdvance.clamp(0.0, maxLimit);
+    final available = (maxLimit - used).clamp(0.0, maxLimit);
     final percentage = maxLimit <= 0 ? 0.0 : (used / maxLimit).clamp(0.0, 1.0);
     final document = employee.documentNumber?.isNotEmpty == true
         ? employee.documentNumber!
@@ -391,7 +412,7 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Disponible: ${_money(employee.availableAdvanceLimit)}',
+                'Disponible: ${_money(available)}',
                 style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
               Text(
