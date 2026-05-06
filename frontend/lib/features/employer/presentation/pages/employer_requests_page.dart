@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/widgets/app_popup.dart';
 import '../../../advances/data/models/advance_model.dart';
 import '../../../advances/presentation/providers/advance_provider.dart';
 import '../widgets/employer_bottom_nav.dart';
@@ -425,8 +426,13 @@ class _EmployerRequestsPageState extends State<EmployerRequestsPage>
   Future<void> _approve(AdvanceModel advance) async {
     final ok = await context.read<AdvanceProvider>().approveAdvance(advance.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Solicitud aprobada' : 'No se pudo aprobar')),
+    await AppPopup.show(
+      context,
+      title: ok ? 'Solicitud aprobada' : 'No se pudo aprobar',
+      message: ok
+          ? 'La solicitud fue aprobada correctamente.'
+          : 'No se pudo aprobar la solicitud. Intenta nuevamente.',
+      type: ok ? AppPopupType.success : AppPopupType.error,
     );
     if (ok) {
       _tabController.animateTo(1);
@@ -470,10 +476,13 @@ class _EmployerRequestsPageState extends State<EmployerRequestsPage>
       reason: reason.trim().isEmpty ? 'Sin especificar' : reason.trim(),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Solicitud rechazada' : 'No se pudo rechazar'),
-      ),
+    await AppPopup.show(
+      context,
+      title: ok ? 'Solicitud rechazada' : 'No se pudo rechazar',
+      message: ok
+          ? 'La solicitud fue rechazada correctamente.'
+          : 'No se pudo rechazar la solicitud. Intenta nuevamente.',
+      type: ok ? AppPopupType.success : AppPopupType.error,
     );
     if (ok) {
       _tabController.animateTo(2);

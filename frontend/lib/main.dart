@@ -13,6 +13,7 @@ import 'features/employee/presentation/pages/employee_main_page.dart';
 import 'features/employer/presentation/pages/employer_main_page.dart';
 import 'features/admin/presentation/pages/admin_main_page.dart';
 import 'core/services/api_service.dart';
+import 'core/widgets/app_popup.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -167,6 +168,38 @@ class _AppInitializerState extends State<AppInitializer> {
       // Redirigir según rol
       final user = authProvider.user!;
       if (user.isEmployee) {
+        if (user.employeeProfile?.isPendingApproval ?? false) {
+          await authProvider.logout();
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginPage()),
+          );
+          await AppPopup.show(
+            context,
+            title: 'Verificacion pendiente',
+            message:
+                'Debes esperar a que tu empleador verifique tu informacion para poder ingresar.',
+            type: AppPopupType.warning,
+          );
+          return;
+        }
+        if (user.employeeProfile?.isRejected ?? false) {
+          await authProvider.logout();
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginPage()),
+          );
+          await AppPopup.show(
+            context,
+            title: 'Vinculacion no aprobada',
+            message:
+                'Tu empleador no aprobo la vinculacion. Contacta a tu empleador para revisar tu informacion.',
+            type: AppPopupType.error,
+          );
+          return;
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const EmployeeMainPage()),

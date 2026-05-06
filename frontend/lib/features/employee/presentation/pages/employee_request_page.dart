@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../advances/presentation/providers/advance_provider.dart';
+import '../../../../core/widgets/app_popup.dart';
 import '../widgets/employee_header.dart';
 import '../widgets/employee_bottom_nav.dart';
 import '../widgets/employee_notifications_drawer.dart';
@@ -99,6 +100,18 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   }
 
   void _showConfirmationDialog(BuildContext context) {
+    final employeeProfile = context.read<AuthProvider>().user?.employeeProfile;
+    if (employeeProfile?.isPendingApproval ?? false) {
+      AppPopup.show(
+        context,
+        title: 'Verificacion pendiente',
+        message:
+            'Debes esperar a que tu empleador verifique tu informacion para poder solicitar adelantos.',
+        type: AppPopupType.warning,
+      );
+      return;
+    }
+
     final amountFormatted = _formatCurrency(_amount);
     final totalFormatted = _formatCurrency(_total);
     final feeFormatted = _formatCurrency(_fee);
@@ -227,7 +240,6 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
 
     // Guardar referencias antes del await
     final navigator = Navigator.of(context);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final advanceProvider = context.read<AdvanceProvider>();
 
     try {
@@ -237,43 +249,44 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         days: _days.toInt(),
       );
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       // Cerrar loading
       navigator.pop();
+
+      if (!success) {
+        await AppPopup.show(
+          context,
+          title: 'Verificacion pendiente',
+          message:
+              advanceProvider.errorMessage ??
+              'Debes esperar a que tu empleador verifique tu informacion para poder solicitar adelantos.',
+          type: AppPopupType.warning,
+        );
+        return;
+      }
 
       if (success) {
-        // Mostrar éxito
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Solicitud enviada exitosamente'),
-            backgroundColor: Color(0xFF10B981),
-          ),
+        await AppPopup.show(
+          context,
+          title: 'Solicitud enviada',
+          message: 'Tu solicitud fue enviada exitosamente.',
+          type: AppPopupType.success,
         );
-
-        // Navegar al historial o inicio
         navigator.pop();
-      } else {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              advanceProvider.errorMessage ?? 'Error al enviar solicitud',
-            ),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
+        return;
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       // Cerrar loading
       navigator.pop();
 
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: const Color(0xFFDC2626),
-        ),
+      await AppPopup.show(
+        context,
+        title: 'No se pudo solicitar',
+        message: 'No se pudo enviar la solicitud. Intenta nuevamente.',
+        type: AppPopupType.error,
       );
     }
   }

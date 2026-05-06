@@ -44,6 +44,30 @@ class _LoginPageState extends State<LoginPage> {
       if (user == null) return;
 
       if (user.isEmployee) {
+        if (user.employeeProfile?.isPendingApproval ?? false) {
+          await authProvider.logout();
+          if (!mounted) return;
+          await AppPopup.show(
+            context,
+            title: 'Verificacion pendiente',
+            message:
+                'Debes esperar a que tu empleador verifique tu informacion para poder ingresar.',
+            type: AppPopupType.warning,
+          );
+          return;
+        }
+        if (user.employeeProfile?.isRejected ?? false) {
+          await authProvider.logout();
+          if (!mounted) return;
+          await AppPopup.show(
+            context,
+            title: 'Vinculacion no aprobada',
+            message:
+                'Tu empleador no aprobo la vinculacion. Contacta a tu empleador para revisar tu informacion.',
+            type: AppPopupType.error,
+          );
+          return;
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const EmployeeMainPage()),

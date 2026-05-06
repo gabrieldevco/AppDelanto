@@ -128,6 +128,7 @@ class EmployeeProfile {
   final String? companyName;
   final double salary;
   final double availableAdvanceLimit;
+  final String approvalStatus;
   final DateTime? hireDate;
   final String? bankAccount;
   final String? bankName;
@@ -138,6 +139,7 @@ class EmployeeProfile {
     this.companyName,
     required this.salary,
     required this.availableAdvanceLimit,
+    this.approvalStatus = 'pending',
     this.hireDate,
     this.bankAccount,
     this.bankName,
@@ -154,6 +156,7 @@ class EmployeeProfile {
       availableAdvanceLimit: json['available_advance_limit'] != null
           ? double.parse(json['available_advance_limit'].toString())
           : 0.0,
+      approvalStatus: json['approval_status'] ?? 'pending',
       hireDate: json['hire_date'] != null
           ? DateTime.tryParse(json['hire_date'])
           : null,
@@ -169,11 +172,15 @@ class EmployeeProfile {
       'company_name': companyName,
       'salary': salary,
       'available_advance_limit': availableAdvanceLimit,
+      'approval_status': approvalStatus,
       'hire_date': hireDate?.toIso8601String(),
       'bank_account': bankAccount,
       'bank_name': bankName,
     };
   }
+
+  bool get isPendingApproval => approvalStatus == 'pending';
+  bool get isRejected => approvalStatus == 'rejected';
 }
 
 class AdminProfile {
