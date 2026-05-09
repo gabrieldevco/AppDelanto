@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/widgets/app_popup.dart';
 import '../providers/admin_provider.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/admin_header.dart';
@@ -19,6 +20,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   final List<_WindowControllers> _windows = [];
   final _interestController = TextEditingController();
   final _salaryPercentController = TextEditingController();
+  final _initialCapitalController = TextEditingController();
   final _minDaysController = TextEditingController();
   final _maxDaysController = TextEditingController();
   bool _hydrated = false;
@@ -48,6 +50,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     }
     _interestController.dispose();
     _salaryPercentController.dispose();
+    _initialCapitalController.dispose();
     _minDaysController.dispose();
     _maxDaysController.dispose();
     super.dispose();
@@ -58,6 +61,8 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     _interestController.text = '${settings['interest_rate_monthly'] ?? '2.50'}';
     _salaryPercentController.text =
         '${settings['max_salary_percentage'] ?? '50'}';
+    _initialCapitalController.text =
+        '${settings['initial_capital'] ?? '20000000'}'.replaceAll('.00', '');
     _minDaysController.text = '${settings['min_days'] ?? '1'}';
     _maxDaysController.text = '${settings['max_days'] ?? '30'}';
 
@@ -92,6 +97,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   void _setDefaultControllers() {
     _interestController.text = '2.5';
     _salaryPercentController.text = '50';
+    _initialCapitalController.text = '20000000';
     _minDaysController.text = '1';
     _maxDaysController.text = '30';
     _fees
@@ -141,6 +147,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     final payload = {
       'interest_rate_monthly': _interestController.text,
       'max_salary_percentage': _salaryPercentController.text,
+      'initial_capital': _initialCapitalController.text,
       'min_days': int.tryParse(_minDaysController.text) ?? 1,
       'max_days': int.tryParse(_maxDaysController.text) ?? 30,
       'fee_ranges': _fees
@@ -173,17 +180,13 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     final adminProvider = context.read<AdminProvider>();
     final success = await adminProvider.updateSettings(payload);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? 'Configuracion guardada en la base de datos'
-              : 'Error al guardar configuracion',
-        ),
-        backgroundColor: success
-            ? const Color(0xFF0D9488)
-            : const Color(0xFFDC2626),
-      ),
+    await AppPopup.show(
+      context,
+      title: success ? 'Configuracion guardada' : 'No se pudo guardar',
+      message: success
+          ? 'Los parametros globales ya quedaron actualizados.'
+          : (adminProvider.error ?? 'Revisa los datos e intenta nuevamente.'),
+      type: success ? AppPopupType.success : AppPopupType.error,
     );
   }
 
@@ -382,6 +385,11 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                   'Porcentaje maximo del salario (%)',
                   _salaryPercentController,
                   decimal: true,
+                ),
+                const SizedBox(height: 16),
+                _textField(
+                  'Capital inicial de la plataforma',
+                  _initialCapitalController,
                 ),
                 const SizedBox(height: 16),
                 Row(

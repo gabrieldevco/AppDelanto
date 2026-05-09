@@ -74,6 +74,19 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (_) => const EmployeeMainPage()),
         );
       } else if (user.isEmployer) {
+        if (!(user.company?.isVerified ?? false) &&
+            !(user.company?.isPreapproved ?? false)) {
+          await authProvider.logout();
+          if (!mounted) return;
+          await AppPopup.show(
+            context,
+            title: 'Verificacion pendiente',
+            message:
+                'Tu empresa aun no ha sido preaprobada por el administrador. Podras ingresar cuando la documentacion sea revisada.',
+            type: AppPopupType.warning,
+          );
+          return;
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const EmployerMainPage()),
@@ -122,11 +135,69 @@ class _LoginPageState extends State<LoginPage> {
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFFFFF1E6),
-                    Color(0xFFFFF7ED),
+                    Color(0xFFFFFAF5),
                     Color(0xFFFFFBF7),
                     Color(0xFFFFFFFF),
                   ],
                   stops: [0, 0.34, 0.68, 1],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _LoginPatternPainter()),
+            ),
+          ),
+          Positioned(
+            bottom: 120,
+            left: -74,
+            child: Container(
+              width: 170,
+              height: 170,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                    const Color(0xFF14B8A6).withValues(alpha: 0.00),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 72,
+            right: -92,
+            child: Transform.rotate(
+              angle: -0.18,
+              child: Container(
+                width: 210,
+                height: 82,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.42),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.56),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 124,
+            left: -86,
+            child: Transform.rotate(
+              angle: -0.18,
+              child: Container(
+                width: 178,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEDD5).withValues(alpha: 0.50),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.62),
+                  ),
                 ),
               ),
             ),
@@ -237,7 +308,7 @@ class _LoginPageState extends State<LoginPage> {
             color: Color(0xFF667085),
           ),
         ),
-        SizedBox(height: compact ? 10 : 16),
+        /* SizedBox(height: compact ? 10 : 16),
         const Wrap(
           alignment: WrapAlignment.center,
           spacing: 8,
@@ -248,6 +319,7 @@ class _LoginPageState extends State<LoginPage> {
             _TrustPill(icon: Icons.phone_iphone_rounded, label: 'Móvil'),
           ],
         ),
+        if (!compact) ...[const SizedBox(height: 14), const _BrandBadge()], */
       ],
     );
   }
@@ -348,42 +420,64 @@ class _LoginPageState extends State<LoginPage> {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 18 : 22),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white),
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.92)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF101828).withValues(alpha: 0.10),
-            blurRadius: 34,
-            offset: const Offset(0, 18),
+            color: const Color(0xFF9A3412).withValues(alpha: 0.08),
+            blurRadius: 38,
+            offset: const Offset(0, 22),
+          ),
+          BoxShadow(
+            color: const Color(0xFF101828).withValues(alpha: 0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 78,
+            height: 5,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFFB86B),
+                  Color(0xFFFF6B1A),
+                  Color(0xFFD97706),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          SizedBox(height: compact ? 14 : 18),
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [Color(0xFFFF8A3D), Color(0xFFF97316)],
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF97316).withValues(alpha: 0.20),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
+                      color: const Color(0xFFF97316).withValues(alpha: 0.22),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: const Icon(
                   Icons.lock_open_rounded,
                   color: Colors.white,
-                  size: 23,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 12),
@@ -414,13 +508,16 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ],
           ),
-          SizedBox(height: compact ? 16 : 24),
+          SizedBox(height: compact ? 14 : 18),
+          _buildLoginInsightStrip(compact: compact),
+          SizedBox(height: compact ? 14 : 20),
           _buildLabel('Correo electronico'),
           const SizedBox(height: 8),
           TextField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
             decoration: _inputDecoration(
               hintText: 'correo@empresa.com',
               icon: Icons.mail_outline_rounded,
@@ -460,6 +557,7 @@ class _LoginPageState extends State<LoginPage> {
             controller: _passwordController,
             obscureText: _obscurePassword,
             textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
             onSubmitted: (_) => isLoading ? null : _login(),
             decoration: _inputDecoration(
               hintText: 'Tu contraseña',
@@ -479,40 +577,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           SizedBox(height: compact ? 16 : 24),
-          SizedBox(
-            width: double.infinity,
-            height: compact ? 48 : 54,
-            child: ElevatedButton.icon(
-              onPressed: isLoading ? null : _login,
-              icon: isLoading
-                  ? const SizedBox.shrink()
-                  : const Icon(Icons.arrow_forward_rounded, size: 20),
-              label: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.4,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Ingresar'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF97316),
-                disabledBackgroundColor: const Color(0xFFFDBA74),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
+          _buildPrimaryButton(isLoading, compact: compact),
           SizedBox(height: compact ? 10 : 12),
           SizedBox(
             width: double.infinity,
@@ -547,19 +612,140 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _buildLoginInsightStrip({required bool compact}) {
+    final items = [
+      (
+        icon: Icons.verified_user_rounded,
+        label: 'Acceso seguro',
+        color: const Color(0xFF0D9488),
+      ),
+      (
+        icon: Icons.speed_rounded,
+        label: 'Panel rapido',
+        color: const Color(0xFFF97316),
+      ),
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(compact ? 9 : 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            const Color(0xFFFFF7ED),
+            Colors.white,
+            const Color(0xFFF0FDFA).withValues(alpha: 0.75),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF8E4D3)),
+      ),
+      child: Row(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: items[index].color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(
+                      items[index].icon,
+                      size: 15,
+                      color: items[index].color,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      items[index].label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF475467),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (index == 0)
+              Container(width: 1, height: 24, color: const Color(0xFFF1E4D6)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrimaryButton(bool isLoading, {required bool compact}) {
+    return Container(
+      width: double.infinity,
+      height: compact ? 48 : 54,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xFFFF8A1D), Color(0xFFF97316), Color(0xFFEA580C)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF97316).withValues(alpha: 0.26),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: isLoading ? null : _login,
+        icon: isLoading
+            ? const SizedBox.shrink()
+            : const Icon(Icons.arrow_forward_rounded, size: 20),
+        label: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Colors.white,
+                ),
+              )
+            : const Text('Ingresar'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          disabledBackgroundColor: const Color(0xFFFDBA74),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFooter() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white),
+        color: Colors.white.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.90)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF101828).withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF9A3412).withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -607,61 +793,59 @@ class _LoginPageState extends State<LoginPage> {
         fontWeight: FontWeight.w500,
       ),
       filled: true,
-      fillColor: const Color(0xFFFFFBF7),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      fillColor: const Color(0xFFFFFCF8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Color(0xFFF1E4D6)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Color(0xFFF1E4D6)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFF97316), width: 1.4),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFF97316), width: 1.6),
       ),
     );
   }
 }
 
-class _TrustPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _TrustPill({required this.icon, required this.label});
-
+class _LoginPatternPainter extends CustomPainter {
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF101828).withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: const Color(0xFFB42318)),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF344054),
-            ),
-          ),
-        ],
-      ),
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = const Color(0xFFF97316).withValues(alpha: 0.045)
+      ..strokeWidth = 1;
+    final dotPaint = Paint()
+      ..color = const Color(0xFF0D9488).withValues(alpha: 0.055);
+
+    for (var i = 0; i < 6; i++) {
+      final y = 92.0 + (i * 38);
+      canvas.drawLine(
+        Offset(size.width * 0.58, y),
+        Offset(size.width + 18, y - 22),
+        linePaint,
+      );
+    }
+
+    for (var i = 0; i < 9; i++) {
+      final x = 26.0 + (i * 38);
+      final y = size.height - 180 + ((i % 3) * 28);
+      canvas.drawCircle(Offset(x, y), 2.2, dotPaint);
+    }
+
+    final arcPaint = Paint()
+      ..color = const Color(0xFFEA580C).withValues(alpha: 0.055)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 12;
+    canvas.drawCircle(
+      Offset(size.width + 32, size.height * 0.48),
+      96,
+      arcPaint,
     );
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

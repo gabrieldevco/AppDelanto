@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 
-from .models import Company, CompanySettings, EmployeeContract
+from .models import Company, CompanySettings, EmployeeContract, PlatformSettings
 from .serializers import (
     CompanySerializer,
     CompanyListSerializer,
@@ -18,6 +18,21 @@ from .serializers import (
 )
 from users.models import User, EmployeeProfile
 from users.serializers import EmployeeProfileSerializer
+
+
+SUBSCRIPTION_RECEIPT_AMOUNT = Decimal('50000.00')
+
+
+def _notify_company_verified(company):
+    from notifications.models import Notification
+
+    if company.admin_id:
+        Notification.objects.create(
+            user=company.admin,
+            type='success',
+            title='Empresa verificada',
+            message='Felicidades, tu empresa esta verificada.',
+        )
 
 
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -52,6 +67,11 @@ class CompanyViewSet(viewsets.ModelViewSet):
         user = request.user
         if not (user.is_admin or (user.is_employer and company.admin == user)):
             return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
+        if user.is_employer and not company.is_verified:
+            return Response(
+                {'error': 'Tu empresa debe estar verificada para crear empleados'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         required_fields = ['email', 'password', 'first_name', 'salary']
         missing = [field for field in required_fields if not request.data.get(field)]
@@ -64,7 +84,10 @@ class CompanyViewSet(viewsets.ModelViewSet):
         email = request.data.get('email', '').strip().lower()
         username = request.data.get('username') or email.split('@')[0]
         username = username.strip().lower()
-        if User.objects.filter(email=email).exists():
+        existing_user = User.objects.filter(email=email).first()
+        if existing_user and not hasattr(existing_user, 'employee_profile'):
+            existing_user.delete()
+        elif existing_user:
             return Response(
                 {'email': 'Ya existe un usuario con este correo'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -103,6 +126,8 @@ class CompanyViewSet(viewsets.ModelViewSet):
                 company=company,
                 salary=salary,
                 available_advance_limit=salary * Decimal('0.5'),
+                bank_account=request.data.get('bank_account', '') or '',
+                bank_name=request.data.get('bank_name', '') or '',
                 hire_date=hire_date,
                 approval_status='approved',
                 approved_at=timezone.now(),
@@ -141,8 +166,143 @@ class CompanyViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
 
         company = self.get_object()
-        company.is_verified = request.data.get('is_verified', True)
-        company.save(update_fields=['is_verified', 'updated_at'])
+        raw_is_verified = request.data.get('is_verified', True)
+        if isinstance(raw_is_verified, str):
+            is_verified = raw_is_verified.strip().lower() in ('true', '1', 'yes', 'si', 's')
+        else:
+            is_verified = bool(raw_is_verified)
+
+        with transaction.atomic():
+            company = Company.objects.select_for_update().get(pk=company.pk)
+            was_verified = company.is_verified
+            company.is_verified = is_verified
+            if company.is_verified:
+                company.platform_contract_verified_at = timezone.now()
+            else:
+                company.platform_contract_verified_at = None
+            company.save(update_fields=['is_verified', 'platform_contract_verified_at', 'updated_at'])
+
+            if (
+                company.is_verified
+                and not was_verified
+                and company.subscription_fee_credited_at is None
+            ):
+                # Verificar empresa: sumar 50000 al capital
+                settings = PlatformSettings.objects.select_for_update().get(
+                    pk=PlatformSettings.get_solo().pk
+                )
+                settings.initial_capital += SUBSCRIPTION_RECEIPT_AMOUNT
+                settings.save(update_fields=['initial_capital', 'updated_at'])
+                company.subscription_fee_credited_at = timezone.now()
+                company.save(update_fields=['subscription_fee_credited_at', 'updated_at'])
+                _notify_company_verified(company)
+            elif (
+                not company.is_verified
+                and was_verified
+                and company.subscription_fee_credited_at is not None
+            ):
+                # Desverificar empresa: NO restar del capital, solo limpiar la marca
+                # para que al volver a verificar se sumen otros 50000
+                company.subscription_fee_credited_at = None
+                company.save(update_fields=['subscription_fee_credited_at', 'updated_at'])
+
+        serializer = self.get_serializer(company)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def preapprove(self, request, pk=None):
+        """Preaprobar empresa para que el empleador pueda entrar y subir contrato."""
+        if not request.user.is_admin:
+            return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
+
+        company = self.get_object()
+        company.is_preapproved = True
+        company.is_verified = False
+        company.save(update_fields=['is_preapproved', 'is_verified', 'updated_at'])
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=company.admin,
+            type='info',
+            title='Empresa preaprobada',
+            message='Tu empresa fue preaprobada. Ingresa para descargar y adjuntar el contrato firmado.',
+        )
+        serializer = self.get_serializer(company)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def upload_subscription_receipt(self, request, pk=None):
+        company = self.get_object()
+        user = request.user
+        if not (user.is_admin or (user.is_employer and company.admin == user)):
+            return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
+        if not company.is_preapproved and not user.is_admin:
+            return Response({'error': 'La empresa aun no esta preaprobada'}, status=status.HTTP_400_BAD_REQUEST)
+
+        receipt_file = request.FILES.get('subscription_receipt_file')
+        if not receipt_file:
+            return Response({'subscription_receipt_file': 'El volante es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        file_name = receipt_file.name.lower()
+        allowed_extensions = ('.pdf', '.png', '.jpg', '.jpeg')
+        if not file_name.endswith(allowed_extensions):
+            return Response(
+                {'subscription_receipt_file': 'Solo se permite PDF, PNG, JPG o JPEG'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        company.subscription_receipt_file = receipt_file
+        company.subscription_receipt_uploaded_at = timezone.now()
+        company.save(update_fields=[
+            'subscription_receipt_file',
+            'subscription_receipt_uploaded_at',
+            'updated_at',
+        ])
+
+        from notifications.models import Notification
+        admins = User.objects.filter(role='admin', is_active=True)
+        for admin in admins:
+            Notification.objects.create(
+                user=admin,
+                type='warning',
+                title='Volante de suscripcion adjuntado',
+                message=f'La empresa {company.name} adjunto su volante de suscripcion para revision.',
+            )
+        serializer = self.get_serializer(company)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def upload_platform_contract(self, request, pk=None):
+        company = self.get_object()
+        user = request.user
+        if not (user.is_admin or (user.is_employer and company.admin == user)):
+            return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
+        if not company.is_preapproved and not user.is_admin:
+            return Response({'error': 'La empresa aun no esta preaprobada'}, status=status.HTTP_400_BAD_REQUEST)
+
+        contract_file = request.FILES.get('platform_contract_file')
+        if not contract_file:
+            return Response({'platform_contract_file': 'El PDF firmado es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        if not contract_file.name.lower().endswith('.pdf'):
+            return Response({'platform_contract_file': 'Solo se permite PDF'}, status=status.HTTP_400_BAD_REQUEST)
+
+        company.platform_contract_file = contract_file
+        company.platform_contract_uploaded_at = timezone.now()
+        company.platform_contract_verified_at = None
+        company.is_verified = False
+        company.save(update_fields=[
+            'platform_contract_file', 'platform_contract_uploaded_at',
+            'platform_contract_verified_at', 'is_verified', 'updated_at',
+        ])
+
+        from notifications.models import Notification
+        admins = User.objects.filter(role='admin', is_active=True)
+        for admin in admins:
+            Notification.objects.create(
+                user=admin,
+                type='warning',
+                title='Contrato firmado adjuntado',
+                message=f'Contrato de la empresa {company.name} adjuntado y firmado para su verificacion.',
+            )
         serializer = self.get_serializer(company)
         return Response(serializer.data)
 
@@ -262,7 +422,7 @@ def my_company(request):
     
     try:
         company = Company.objects.get(admin=user)
-        serializer = CompanySerializer(company)
+        serializer = CompanySerializer(company, context={'request': request})
         return Response(serializer.data)
     except Company.DoesNotExist:
         return Response({'error': 'No tienes una empresa registrada'}, 

@@ -22,6 +22,11 @@ class Company(models.Model):
         blank=True,
         verbose_name='Dirección'
     )
+    city = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name='Ciudad'
+    )
     phone = models.CharField(
         max_length=20,
         blank=True,
@@ -108,6 +113,27 @@ class Company(models.Model):
         verbose_name='¿Verificada?'
     )
     
+    is_preapproved = models.BooleanField(
+        default=False,
+        verbose_name='Preaprobada'
+    )
+    platform_contract_file = models.FileField(
+        upload_to='employer_documents/platform_contracts/',
+        blank=True,
+        null=True,
+        verbose_name='Contrato firmado con AppDelanta'
+    )
+    platform_contract_uploaded_at = models.DateTimeField(null=True, blank=True)
+    platform_contract_verified_at = models.DateTimeField(null=True, blank=True)
+    subscription_receipt_file = models.FileField(
+        upload_to='employer_documents/subscription_receipts/',
+        blank=True,
+        null=True,
+        verbose_name='Volante de suscripcion'
+    )
+    subscription_receipt_uploaded_at = models.DateTimeField(null=True, blank=True)
+    subscription_fee_credited_at = models.DateTimeField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -135,13 +161,18 @@ class Company(models.Model):
     
     @property
     def total_recovered(self):
-        """Total recuperado de empleados"""
+        """Ganancia recuperada: total adelanto menos capital transferido."""
         from advances.models import Advance
         return Advance.objects.filter(
             employee__company=self,
             status='recovered'
+        ).annotate(
+            recovered_profit=models.ExpressionWrapper(
+                models.F('total_amount') - models.F('amount'),
+                output_field=models.DecimalField(max_digits=12, decimal_places=2),
+            )
         ).aggregate(
-            total=models.Sum('amount')
+            total=models.Sum('recovered_profit')
         )['total'] or 0
 
 
@@ -254,6 +285,7 @@ class EmployeeContract(models.Model):
 class PlatformSettings(models.Model):
     interest_rate_monthly = models.DecimalField(max_digits=5, decimal_places=2, default=2.50)
     max_salary_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=50.00)
+    initial_capital = models.DecimalField(max_digits=14, decimal_places=2, default=20000000)
     min_days = models.PositiveSmallIntegerField(default=1)
     max_days = models.PositiveSmallIntegerField(default=30)
     updated_at = models.DateTimeField(auto_now=True)

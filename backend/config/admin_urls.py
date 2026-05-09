@@ -16,6 +16,14 @@ def _interest_expression():
         output_field=DecimalField(max_digits=12, decimal_places=2),
     )
 
+
+def _recovered_profit_expression():
+    from django.db.models import DecimalField, ExpressionWrapper, F
+    return ExpressionWrapper(
+        F('total_amount') - F('amount'),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard(request):
@@ -51,9 +59,10 @@ def dashboard(request):
     total_disbursed = completed_advances.aggregate(
         total=Sum('amount')
     )['total'] or 0
-    total_recovered = Advance.objects.filter(status='recovered').aggregate(
-        total=Sum('amount')
-    )['total'] or 0
+    recovered_profit_expression = _recovered_profit_expression()
+    total_recovered = Advance.objects.filter(status='recovered').annotate(
+        recovered_profit=recovered_profit_expression
+    ).aggregate(total=Sum('recovered_profit'))['total'] or 0
     total_fees = completed_advances.aggregate(
         total=Sum('fee')
     )['total'] or 0
@@ -65,6 +74,13 @@ def dashboard(request):
         calculated_interest=interest_expression
     ).aggregate(total=Sum('calculated_interest'))['total'] or 0
     total_earnings = total_fees + total_interest
+    
+    # Suscripciones: 50000 por cada empresa verificada
+    SUBSCRIPTION_AMOUNT = Decimal('50000')
+    total_subscriptions = SUBSCRIPTION_AMOUNT * verified_companies
+    
+    # Total incluyendo suscripciones
+    total_earnings_with_subscriptions = total_earnings + total_subscriptions
 
     month_labels = {
         1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr',
@@ -90,9 +106,9 @@ def dashboard(request):
         month_disbursed = month_advances.filter(
             status__in=['disbursed', 'recovered']
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-        month_recovered = month_advances.filter(
-            status='recovered'
-        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        month_recovered = month_advances.filter(status='recovered').annotate(
+            recovered_profit=recovered_profit_expression
+        ).aggregate(total=Sum('recovered_profit'))['total'] or Decimal('0')
         monthly.append({
             'label': month_labels[month_start.month],
             'disbursed': str(month_disbursed),
@@ -123,9 +139,11 @@ def dashboard(request):
             'total_recovered': str(total_recovered),
         },
         'earnings': {
-            'total': str(total_earnings),
+            'total': str(total_earnings_with_subscriptions),
             'fees': str(total_fees),
             'interest': str(total_interest),
+            'subscriptions': str(total_subscriptions),
+            'verified_companies_count': verified_companies,
         },
         'monthly': monthly,
         'recent_notifications': [
@@ -153,6 +171,7 @@ def _serialize_platform_settings():
     return {
         'interest_rate_monthly': _decimal_str(settings.interest_rate_monthly),
         'max_salary_percentage': _decimal_str(settings.max_salary_percentage),
+        'initial_capital': _decimal_str(settings.initial_capital),
         'min_days': settings.min_days,
         'max_days': settings.max_days,
         'min_amount': _decimal_str(fee_ranges.order_by('min_amount').first().min_amount),
@@ -199,6 +218,7 @@ def platform_settings(request):
     data = request.data
     settings.interest_rate_monthly = Decimal(str(data.get('interest_rate_monthly', settings.interest_rate_monthly)))
     settings.max_salary_percentage = Decimal(str(data.get('max_salary_percentage', settings.max_salary_percentage)))
+    settings.initial_capital = Decimal(str(data.get('initial_capital', settings.initial_capital)))
     settings.min_days = int(data.get('min_days', settings.min_days))
     settings.max_days = int(data.get('max_days', settings.max_days))
     settings.save()
@@ -277,9 +297,12 @@ def reports(request):
     rejected = advances.filter(status='rejected')
     approved = advances.filter(status__in=['approved', 'disbursed', 'recovered'])
     interest_expr = _interest_expression()
+    recovered_profit_expr = _recovered_profit_expression()
 
     total_disbursed = completed.aggregate(total=Sum('amount'))['total'] or 0
-    total_recovered = recovered.aggregate(total=Sum('amount'))['total'] or 0
+    total_recovered = recovered.annotate(
+        recovered_profit=recovered_profit_expr
+    ).aggregate(total=Sum('recovered_profit'))['total'] or 0
     total_fees = completed.aggregate(total=Sum('fee'))['total'] or 0
     total_interest = completed.annotate(calculated_interest=interest_expr).aggregate(
         total=Sum('calculated_interest')
@@ -301,7 +324,11 @@ def reports(request):
             'employees': company.employee_count,
             'requests': company_advances.count(),
             'disbursed': _decimal_str(company_completed.aggregate(total=Sum('amount'))['total']),
-            'recovered': _decimal_str(company_recovered.aggregate(total=Sum('amount'))['total']),
+            'recovered': _decimal_str(
+                company_recovered.annotate(
+                    recovered_profit=recovered_profit_expr
+                ).aggregate(total=Sum('recovered_profit'))['total']
+            ),
             'earnings': _decimal_str(company_fees + company_interest),
         })
 

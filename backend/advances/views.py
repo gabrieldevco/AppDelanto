@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
-from django.db import models
+from django.db import models, transaction
 from decimal import Decimal
 
 from .models import Advance, AdvanceHistory
@@ -13,6 +13,7 @@ from .serializers import (
     AdvanceStatusUpdateSerializer, AdvanceListSerializer
 )
 from notifications.models import Notification
+from companies.models import PlatformSettings
 
 
 def notify_admins_advance_ready(advance):
@@ -253,6 +254,11 @@ def approve_advance(request, pk):
     user = request.user
     if not (user.is_admin or (user.is_employer and advance.company.admin == user)):
         return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
+    if user.is_employer and not advance.company.is_verified:
+        return Response(
+            {'error': 'Tu empresa debe estar verificada para aprobar adelantos'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     
     if advance.status != 'pending':
         return Response({'error': 'Solo se pueden aprobar adelantos pendientes'}, 
@@ -298,6 +304,11 @@ def reject_advance(request, pk):
     user = request.user
     if not (user.is_admin or (user.is_employer and advance.company.admin == user)):
         return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
+    if user.is_employer and not advance.company.is_verified:
+        return Response(
+            {'error': 'Tu empresa debe estar verificada para rechazar adelantos'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     
     if advance.status != 'pending':
         return Response({'error': 'Solo se pueden rechazar adelantos pendentes'}, 
@@ -362,23 +373,36 @@ def disburse_advance(request, pk):
         return Response({'error': 'Solo se pueden desembolsar adelantos aprobados'}, 
                        status=status.HTTP_400_BAD_REQUEST)
     
-    old_status = advance.status
-    advance.status = 'disbursed'
-    advance.disbursed_at = timezone.now()
-    advance.disbursement_reference = request.data.get('disbursement_reference', '')
-    advance.save()
-    
-    # Actualizar límite disponible del empleado
-    advance.employee.available_advance_limit -= advance.amount
-    advance.employee.save()
-    
-    AdvanceHistory.objects.create(
-        advance=advance,
-        status_from=old_status,
-        status_to='disbursed',
-        changed_by=user,
-        notes=request.data.get('notes', 'Adelanto desembolsado')
-    )
+    with transaction.atomic():
+        settings = PlatformSettings.objects.select_for_update().get(
+            pk=PlatformSettings.get_solo().pk
+        )
+        if settings.initial_capital < advance.amount:
+            return Response(
+                {'error': 'Capital insuficiente para completar este desembolso'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_status = advance.status
+        advance.status = 'disbursed'
+        advance.disbursed_at = timezone.now()
+        advance.disbursement_reference = request.data.get('disbursement_reference', '')
+        advance.save()
+
+        settings.initial_capital -= advance.amount
+        settings.save(update_fields=['initial_capital', 'updated_at'])
+
+        # Actualizar limite disponible del empleado
+        advance.employee.available_advance_limit -= advance.amount
+        advance.employee.save()
+
+        AdvanceHistory.objects.create(
+            advance=advance,
+            status_from=old_status,
+            status_to='disbursed',
+            changed_by=user,
+            notes=request.data.get('notes', 'Adelanto desembolsado')
+        )
 
     Notification.objects.create(
         user=advance.employee.user,
@@ -409,22 +433,29 @@ def undisburse_advance(request, pk):
         return Response({'error': 'Solo se pueden marcar como incompletos desembolsos completados'},
                        status=status.HTTP_400_BAD_REQUEST)
 
-    old_status = advance.status
-    advance.status = 'approved'
-    advance.disbursed_at = None
-    advance.disbursement_reference = ''
-    advance.save()
+    with transaction.atomic():
+        old_status = advance.status
+        advance.status = 'approved'
+        advance.disbursed_at = None
+        advance.disbursement_reference = ''
+        advance.save()
 
-    advance.employee.available_advance_limit += advance.amount
-    advance.employee.save()
+        settings = PlatformSettings.objects.select_for_update().get(
+            pk=PlatformSettings.get_solo().pk
+        )
+        settings.initial_capital += advance.amount
+        settings.save(update_fields=['initial_capital', 'updated_at'])
 
-    AdvanceHistory.objects.create(
-        advance=advance,
-        status_from=old_status,
-        status_to='approved',
-        changed_by=user,
-        notes=request.data.get('notes', 'Desembolso marcado como incompleto')
-    )
+        advance.employee.available_advance_limit += advance.amount
+        advance.employee.save()
+
+        AdvanceHistory.objects.create(
+            advance=advance,
+            status_from=old_status,
+            status_to='approved',
+            changed_by=user,
+            notes=request.data.get('notes', 'Desembolso marcado como incompleto')
+        )
 
     return Response(AdvanceSerializer(advance).data)
 
@@ -447,21 +478,29 @@ def recover_advance(request, pk):
         return Response({'error': 'Solo se pueden reembolsar adelantos desembolsados'},
                        status=status.HTTP_400_BAD_REQUEST)
 
-    old_status = advance.status
-    advance.status = 'recovered'
-    advance.recovery_date = timezone.now()
-    advance.save()
+    with transaction.atomic():
+        settings = PlatformSettings.objects.select_for_update().get(
+            pk=PlatformSettings.get_solo().pk
+        )
 
-    advance.employee.available_advance_limit += advance.amount
-    advance.employee.save()
+        old_status = advance.status
+        advance.status = 'recovered'
+        advance.recovery_date = timezone.localdate()
+        advance.save()
 
-    AdvanceHistory.objects.create(
-        advance=advance,
-        status_from=old_status,
-        status_to='recovered',
-        changed_by=user,
-        notes=request.data.get('notes', 'Pago recibido marcado como reembolsado')
-    )
+        settings.initial_capital += advance.total_amount
+        settings.save(update_fields=['initial_capital', 'updated_at'])
+
+        advance.employee.available_advance_limit += advance.amount
+        advance.employee.save()
+
+        AdvanceHistory.objects.create(
+            advance=advance,
+            status_from=old_status,
+            status_to='recovered',
+            changed_by=user,
+            notes=request.data.get('notes', 'Pago recibido marcado como reembolsado')
+        )
 
     Notification.objects.create(
         user=advance.employee.user,
@@ -492,20 +531,33 @@ def unrecover_advance(request, pk):
         return Response({'error': 'Solo se pueden deshacer pagos recibidos reembolsados'},
                        status=status.HTTP_400_BAD_REQUEST)
 
-    old_status = advance.status
-    advance.status = 'disbursed'
-    advance.recovery_date = None
-    advance.save()
+    with transaction.atomic():
+        settings = PlatformSettings.objects.select_for_update().get(
+            pk=PlatformSettings.get_solo().pk
+        )
+        if settings.initial_capital < advance.total_amount:
+            return Response(
+                {'error': 'Capital insuficiente para deshacer este reembolso'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-    advance.employee.available_advance_limit -= advance.amount
-    advance.employee.save()
+        old_status = advance.status
+        advance.status = 'disbursed'
+        advance.recovery_date = None
+        advance.save()
 
-    AdvanceHistory.objects.create(
-        advance=advance,
-        status_from=old_status,
-        status_to='disbursed',
-        changed_by=user,
-        notes=request.data.get('notes', 'Reembolso deshecho')
-    )
+        settings.initial_capital -= advance.total_amount
+        settings.save(update_fields=['initial_capital', 'updated_at'])
+
+        advance.employee.available_advance_limit -= advance.amount
+        advance.employee.save()
+
+        AdvanceHistory.objects.create(
+            advance=advance,
+            status_from=old_status,
+            status_to='disbursed',
+            changed_by=user,
+            notes=request.data.get('notes', 'Reembolso deshecho')
+        )
 
     return Response(AdvanceSerializer(advance).data)

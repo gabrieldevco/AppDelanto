@@ -31,6 +31,60 @@ class CompanyService {
     return CompanyModel.fromJson(response);
   }
 
+  Future<CompanyModel> uploadPlatformContract({
+    required int companyId,
+    required File file,
+  }) async {
+    final formData = FormData.fromMap({
+      'platform_contract_file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.path.split(Platform.pathSeparator).last,
+      ),
+    });
+    final response = await _apiService.dio.post(
+      '${ApiConstants.companies}$companyId/upload_platform_contract/',
+      data: formData,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    if (response.statusCode == null ||
+        response.statusCode! < 200 ||
+        response.statusCode! >= 300) {
+      throw ApiException(
+        message: response.data.toString(),
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+    }
+    return CompanyModel.fromJson(response.data);
+  }
+
+  Future<CompanyModel> uploadSubscriptionReceipt({
+    required int companyId,
+    required File file,
+  }) async {
+    final formData = FormData.fromMap({
+      'subscription_receipt_file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.path.split(Platform.pathSeparator).last,
+      ),
+    });
+    final response = await _apiService.dio.post(
+      '${ApiConstants.companies}$companyId/upload_subscription_receipt/',
+      data: formData,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    if (response.statusCode == null ||
+        response.statusCode! < 200 ||
+        response.statusCode! >= 300) {
+      throw ApiException(
+        message: response.data.toString(),
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+    }
+    return CompanyModel.fromJson(response.data);
+  }
+
   // Crear empresa (registro de empleador)
   Future<CompanyModel> createCompany({
     required String name,
@@ -170,6 +224,8 @@ class CompanyService {
     required double salary,
     String? phone,
     String? documentNumber,
+    String? bankAccount,
+    String? bankName,
     DateTime? hireDate,
     File? contractFile,
     String? contractTitle,
@@ -183,6 +239,8 @@ class CompanyService {
       'salary': salary,
       'phone': phone,
       'document_number': documentNumber,
+      'bank_account': bankAccount,
+      'bank_name': bankName,
       'hire_date': hireDate?.toIso8601String(),
       'contract_title': contractTitle,
     };

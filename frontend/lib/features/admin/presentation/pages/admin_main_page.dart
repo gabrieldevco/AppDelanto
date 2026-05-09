@@ -17,9 +17,12 @@ class _AdminMainPageState extends State<AdminMainPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminProvider>().loadDashboardStats();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAdminHome());
+  }
+
+  Future<void> _loadAdminHome() async {
+    final provider = context.read<AdminProvider>();
+    await Future.wait([provider.loadDashboardStats(), provider.loadSettings()]);
   }
 
   @override
@@ -35,13 +38,14 @@ class _AdminMainPageState extends State<AdminMainPage> {
     final earnings = stats['earnings'] is Map<String, dynamic>
         ? stats['earnings'] as Map<String, dynamic>
         : <String, dynamic>{};
+    final settings = adminProvider.settings ?? <String, dynamic>{};
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       endDrawer: const AdminNotificationsDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () => context.read<AdminProvider>().loadDashboardStats(),
+          onRefresh: _loadAdminHome,
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 10),
             physics: const AlwaysScrollableScrollPhysics(),
@@ -64,7 +68,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildHeroAdminCard(advances, users),
+                          _buildHeroAdminCard(advances, users, settings),
                           const SizedBox(height: 20),
                           Row(
                             children: [
@@ -143,6 +147,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
   Widget _buildHeroAdminCard(
     Map<String, dynamic> advances,
     Map<String, dynamic> users,
+    Map<String, dynamic> settings,
   ) {
     final totalUsers = _toInt(users['employees']) + _toInt(users['employers']);
     return Container(
@@ -221,22 +226,123 @@ class _AdminMainPageState extends State<AdminMainPage> {
             ),
           ),
           const SizedBox(height: 18),
-          Row(
+          _buildCapitalHeroMetric(settings),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCapitalHeroMetric(Map<String, dynamic> settings) {
+    final capital = _formatCurrency(settings['initial_capital'] ?? 20000000);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.18),
+            Colors.white.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -18,
+            top: -18,
+            child: Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _buildHeroMetric(
-                  'Desembolsado',
-                  _formatCurrency(advances['total_disbursed']),
-                  Icons.payments_outlined,
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Capital',
+                          style: TextStyle(
+                            color: Color(0xFFEDE9FE),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Configurable desde Operacion',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFFD8B4FE),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  capital,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                    height: 1,
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildHeroMetric(
-                  'Recuperado',
-                  _formatCurrency(advances['total_recovered']),
-                  Icons.trending_up,
-                ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _capitalChip(Icons.verified_outlined, 'Fondo operativo'),
+                  const SizedBox(width: 8),
+                  _capitalChip(Icons.auto_graph_outlined, 'En tiempo real'),
+                ],
               ),
             ],
           ),
@@ -245,39 +351,34 @@ class _AdminMainPageState extends State<AdminMainPage> {
     );
   }
 
-  Widget _buildHeroMetric(String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.white, size: 19),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFFEDE9FE),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+  Widget _capitalChip(IconData icon, String label) {
+    return Flexible(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFFEDE9FE), size: 15),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFEDE9FE),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -466,6 +567,59 @@ class _AdminMainPageState extends State<AdminMainPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xFF0EA5E9), Color(0xFF38BDF8)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Suscripciones',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatCurrency(earnings['subscriptions']),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${earnings['verified_companies_count'] ?? 0} empresas',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

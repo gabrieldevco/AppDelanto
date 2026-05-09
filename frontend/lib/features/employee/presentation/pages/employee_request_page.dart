@@ -18,6 +18,8 @@ class EmployeeRequestPage extends StatefulWidget {
 }
 
 class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
+  static const double _amountStep = 10000;
+
   final _amountController = TextEditingController(text: '100000');
 
   double _amount = 100000;
@@ -45,6 +47,16 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   }
 
   double get _total => _amount + _fee + _interest;
+  double get _appliedInterestRate {
+    if (_monthlyRate <= 0) return 0;
+    return (_monthlyRate * (_days.toInt() / 30)).clamp(0, _monthlyRate);
+  }
+
+  String get _interestSummaryLabel {
+    final applied = (_appliedInterestRate * 100).toStringAsFixed(2);
+    final monthly = (_monthlyRate * 100).toStringAsFixed(2);
+    return 'Interes ($applied% por ${_days.toInt()} dias, max $monthly% mensual)';
+  }
 
   double _toDouble(dynamic value) => value is num
       ? value.toDouble()
@@ -57,6 +69,19 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
       (Match m) => '${m[1]}.',
     );
     return result;
+  }
+
+  double _snapAmount(double value, double maxAmount) {
+    final clamped = value.clamp(_minAmount, maxAmount).toDouble();
+    final steps = ((clamped - _minAmount) / _amountStep).round();
+    final snapped = _minAmount + (steps * _amountStep);
+    return snapped.clamp(_minAmount, maxAmount).toDouble();
+  }
+
+  int? _amountDivisions(double maxAmount) {
+    final range = maxAmount - _minAmount;
+    if (range <= 0) return null;
+    return (range / _amountStep).round().clamp(1, 100000).toInt();
   }
 
   Future<void> _calculateAdvance() async {
@@ -74,7 +99,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
   }
 
   void _setAmount(double value, double maxAmount, {bool updateText = false}) {
-    final clamped = value.clamp(_minAmount, maxAmount).toDouble();
+    final clamped = _snapAmount(value, maxAmount);
     setState(() {
       _amount = clamped;
       if (updateText) {
@@ -203,7 +228,10 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
         final salary = user?.employeeProfile?.salary ?? 0.0;
 
         if (_amount > maxAmount) {
-          _amount = maxAmount > _minAmount ? maxAmount : _minAmount;
+          _amount = _snapAmount(
+            maxAmount > _minAmount ? maxAmount : _minAmount,
+            maxAmount,
+          );
           _amountController.text = _amount.toStringAsFixed(0);
         }
 
@@ -328,7 +356,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
               );
               if (typed == null) return;
               if (typed >= _minAmount && typed <= maxAmount) {
-                setState(() => _amount = typed);
+                setState(() => _amount = _snapAmount(typed, maxAmount));
                 _calculateAdvance();
               }
             },
@@ -340,6 +368,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
             value: _amount,
             min: _minAmount,
             max: maxAmount,
+            divisions: _amountDivisions(maxAmount),
             activeColor: const Color(0xFF00A86B),
             onChanged: (value) =>
                 _setAmount(value, maxAmount, updateText: true),
@@ -403,7 +432,7 @@ class _EmployeeRequestPageState extends State<EmployeeRequestPage> {
           _summaryRow('Monto adelantado', _amount, const Color(0xFF00A86B)),
           _summaryRow('Fee transaccion', _fee, const Color(0xFFF59E0B)),
           _summaryRow(
-            'Interes (${(_monthlyRate * 100).toStringAsFixed(2)}% mensual)',
+            _interestSummaryLabel,
             _interest,
             const Color(0xFFEA580C),
           ),

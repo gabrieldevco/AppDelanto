@@ -16,6 +16,8 @@ class CompanyDocumentMixin:
         'chamber_of_commerce_document',
         'legal_representative_id_document',
         'bank_statements_document',
+        'platform_contract_file',
+        'subscription_receipt_file',
     ]
 
     def _file_url(self, file_field):
@@ -38,6 +40,12 @@ class CompanyDocumentMixin:
     def get_bank_statements_document_url(self, obj):
         return self._file_url(obj.bank_statements_document)
 
+    def get_platform_contract_file_url(self, obj):
+        return self._file_url(obj.platform_contract_file)
+
+    def get_subscription_receipt_file_url(self, obj):
+        return self._file_url(obj.subscription_receipt_file)
+
 
 class CompanySerializer(CompanyDocumentMixin, serializers.ModelSerializer):
     """Serializer para empresa"""
@@ -49,20 +57,26 @@ class CompanySerializer(CompanyDocumentMixin, serializers.ModelSerializer):
     chamber_of_commerce_document_url = serializers.SerializerMethodField()
     legal_representative_id_document_url = serializers.SerializerMethodField()
     bank_statements_document_url = serializers.SerializerMethodField()
+    platform_contract_file_url = serializers.SerializerMethodField()
+    subscription_receipt_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Company
         fields = [
-            'id', 'name', 'legal_name', 'tax_id', 'address', 'phone', 'email',
+            'id', 'name', 'legal_name', 'tax_id', 'address', 'city', 'phone', 'email',
             'admin', 'admin_name', 'admin_email', 'max_advance_percentage',
-            'advance_fee_percentage', 'is_active', 'is_verified',
+            'advance_fee_percentage', 'is_active', 'is_verified', 'is_preapproved',
             'created_at', 'settings', 'employee_count',
             'rut_document', 'rut_document_url',
             'chamber_of_commerce_document', 'chamber_of_commerce_document_url',
             'legal_representative_id_document',
             'legal_representative_id_document_url',
             'bank_statements_document', 'bank_statements_document_url',
-            'bank_account', 'bank_name',
+            'bank_account', 'bank_name', 'platform_contract_file',
+            'platform_contract_file_url', 'platform_contract_uploaded_at',
+            'platform_contract_verified_at',
+            'subscription_receipt_file', 'subscription_receipt_file_url',
+            'subscription_receipt_uploaded_at',
         ]
         read_only_fields = ['id', 'created_at', 'is_verified']
 
@@ -72,7 +86,7 @@ class CompanyListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Company
-        fields = ['id', 'name', 'tax_id', 'is_active', 'is_verified', 'employee_count']
+        fields = ['id', 'name', 'tax_id', 'is_active', 'is_verified', 'is_preapproved', 'employee_count']
 
 
 class CompanyDetailAdminSerializer(CompanyDocumentMixin, serializers.ModelSerializer):
@@ -87,22 +101,28 @@ class CompanyDetailAdminSerializer(CompanyDocumentMixin, serializers.ModelSerial
     chamber_of_commerce_document_url = serializers.SerializerMethodField()
     legal_representative_id_document_url = serializers.SerializerMethodField()
     bank_statements_document_url = serializers.SerializerMethodField()
+    platform_contract_file_url = serializers.SerializerMethodField()
+    subscription_receipt_file_url = serializers.SerializerMethodField()
     has_chamber_document = serializers.SerializerMethodField()
 
     class Meta:
         model = Company
         fields = [
-            'id', 'name', 'legal_name', 'tax_id', 'address', 'phone', 'email',
+            'id', 'name', 'legal_name', 'tax_id', 'address', 'city', 'phone', 'email',
             'admin', 'admin_name', 'admin_email', 'admin_phone',
             'admin_document', 'max_advance_percentage',
-            'advance_fee_percentage', 'is_active', 'is_verified',
+            'advance_fee_percentage', 'is_active', 'is_verified', 'is_preapproved',
             'created_at', 'settings', 'employee_count',
             'rut_document', 'rut_document_url',
             'chamber_of_commerce_document', 'chamber_of_commerce_document_url',
             'has_chamber_document', 'legal_representative_id_document',
             'legal_representative_id_document_url',
             'bank_statements_document', 'bank_statements_document_url',
-            'bank_account', 'bank_name',
+            'bank_account', 'bank_name', 'platform_contract_file',
+            'platform_contract_file_url', 'platform_contract_uploaded_at',
+            'platform_contract_verified_at',
+            'subscription_receipt_file', 'subscription_receipt_file_url',
+            'subscription_receipt_uploaded_at',
         ]
         read_only_fields = ['id', 'created_at']
 

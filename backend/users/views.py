@@ -5,8 +5,10 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.db import models
 from django.utils import timezone
+from decimal import Decimal
 
 from .models import User, EmployeeProfile, AdminProfile
 from .serializers import (
@@ -14,6 +16,9 @@ from .serializers import (
     EmployeeProfileSerializer, AdminProfileSerializer, LoginSerializer,
     UserWithProfileSerializer
 )
+
+
+SUBSCRIPTION_RECEIPT_AMOUNT = Decimal('50000.00')
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -50,6 +55,14 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
         elif user.is_employer:
             return EmployeeProfile.objects.filter(company=user.company)
         return EmployeeProfile.objects.filter(user=user)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete the employee profile and its user so the email can be reused."""
+        profile = self.get_object()
+        employee_user = profile.user
+        with transaction.atomic():
+            employee_user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['post'], url_path='join-company')
     def join_company(self, request):
@@ -342,13 +355,33 @@ def verify_company(request, company_id):
     if not request.user.is_admin:
         return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
     
-    from companies.models import Company
+    from companies.models import Company, PlatformSettings
     from companies.serializers import CompanyDetailAdminSerializer
     
     try:
-        company = Company.objects.get(id=company_id)
-        company.is_verified = True
-        company.save()
+        with transaction.atomic():
+            company = Company.objects.select_for_update().get(id=company_id)
+            was_verified = company.is_verified
+            company.is_verified = True
+            company.platform_contract_verified_at = timezone.now()
+            company.save(update_fields=['is_verified', 'platform_contract_verified_at', 'updated_at'])
+
+            if not was_verified and company.subscription_fee_credited_at is None:
+                settings = PlatformSettings.objects.select_for_update().get(
+                    pk=PlatformSettings.get_solo().pk
+                )
+                settings.initial_capital += SUBSCRIPTION_RECEIPT_AMOUNT
+                settings.save(update_fields=['initial_capital', 'updated_at'])
+                company.subscription_fee_credited_at = timezone.now()
+                company.save(update_fields=['subscription_fee_credited_at', 'updated_at'])
+
+                from notifications.models import Notification
+                Notification.objects.create(
+                    user=company.admin,
+                    type='success',
+                    title='Empresa verificada',
+                    message='Felicidades, tu empresa esta verificada.',
+                )
         return Response(CompanyDetailAdminSerializer(company, context={'request': request}).data)
     except Company.DoesNotExist:
         return Response({'error': 'Empresa no encontrada'}, status=status.HTTP_404_NOT_FOUND)

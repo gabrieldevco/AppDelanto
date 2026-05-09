@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/widgets/app_popup.dart';
 import '../../../companies/presentation/providers/company_provider.dart';
 
 class EmployerCreateEmployeePage extends StatefulWidget {
@@ -20,6 +21,26 @@ class _EmployerCreateEmployeePageState
   final _phoneController = TextEditingController();
   final _salaryController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _bankNameController = TextEditingController();
+  final _bankAccountController = TextEditingController();
+  final List<String> _colombiaBanks = const [
+    'Bancolombia',
+    'Banco de Bogota',
+    'Davivienda',
+    'BBVA Colombia',
+    'Banco de Occidente',
+    'Banco Popular',
+    'Banco AV Villas',
+    'Banco Caja Social',
+    'Banco Agrario',
+    'Scotiabank Colpatria',
+    'Itaú',
+    'Citibank',
+    'Nequi (Bancolombia)',
+    'Daviplata',
+    'Movii',
+    'Otro',
+  ];
 
   bool _isSubmitting = false;
 
@@ -31,6 +52,8 @@ class _EmployerCreateEmployeePageState
     _phoneController.dispose();
     _salaryController.dispose();
     _passwordController.dispose();
+    _bankNameController.dispose();
+    _bankAccountController.dispose();
     super.dispose();
   }
 
@@ -128,6 +151,22 @@ class _EmployerCreateEmployeePageState
                       ],
                     ),
                     const SizedBox(height: 14),
+                    _buildFormSection(
+                      title: 'Datos bancarios',
+                      icon: Icons.account_balance_outlined,
+                      children: [
+                        _formField(
+                          controller: _bankAccountController,
+                          label: 'Numero de cuenta',
+                          icon: Icons.credit_card_outlined,
+                          keyboardType: TextInputType.number,
+                          helperText:
+                              'Aqui se enviaran los adelantos aprobados.',
+                        ),
+                        _bankDropdown(),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                     _buildPolicyNote(),
                     const SizedBox(height: 18),
                     _buildActions(),
@@ -138,6 +177,239 @@ class _EmployerCreateEmployeePageState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _bankDropdown() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: _bankNameController,
+        readOnly: true,
+        onTap: _isSubmitting ? null : _showBankSelector,
+        decoration: _fieldDecoration(
+          label: 'Banco',
+          icon: Icons.account_balance_outlined,
+          suffixIcon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Color(0xFF047857),
+          ),
+        ),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Selecciona un banco';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required String label,
+    required IconData icon,
+    Widget? suffixIcon,
+    String? helperText,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      helperText: helperText,
+      prefixIcon: Icon(icon, color: const Color(0xFF047857), size: 20),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      labelStyle: const TextStyle(
+        color: Color(0xFF64748B),
+        fontWeight: FontWeight.w600,
+      ),
+      helperStyle: const TextStyle(color: Color(0xFF94A3B8)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFDC2626)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.4),
+      ),
+    );
+  }
+
+  void _showBankSelector() {
+    const banksPerPage = 6;
+    var currentPage = 0;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final totalPages = (_colombiaBanks.length / banksPerPage).ceil();
+            final start = currentPage * banksPerPage;
+            final visibleBanks = _colombiaBanks
+                .skip(start)
+                .take(banksPerPage)
+                .toList();
+            return SafeArea(
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF047857).withValues(alpha: 0.16),
+                      blurRadius: 28,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF047857), Color(0xFF14B8A6)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_outlined,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Seleccionar banco',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...visibleBanks.map((bank) {
+                      final selected = _bankNameController.text == bank;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            setState(() => _bankNameController.text = bank);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? const Color(0xFFECFDF5)
+                                  : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: selected
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  selected
+                                      ? Icons.check_circle_rounded
+                                      : Icons.account_balance_outlined,
+                                  color: selected
+                                      ? const Color(0xFF047857)
+                                      : const Color(0xFF64748B),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    bank,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: selected
+                                          ? FontWeight.w900
+                                          : FontWeight.w700,
+                                      color: const Color(0xFF111827),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: currentPage == 0
+                              ? null
+                              : () => setSheetState(() => currentPage--),
+                          icon: const Icon(Icons.chevron_left_rounded),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFECFDF5),
+                            disabledBackgroundColor: const Color(0xFFF1F5F9),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Pagina ${currentPage + 1} de $totalPages',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF047857),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: currentPage >= totalPages - 1
+                              ? null
+                              : () => setSheetState(() => currentPage++),
+                          icon: const Icon(Icons.chevron_right_rounded),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFECFDF5),
+                            disabledBackgroundColor: const Color(0xFFF1F5F9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -572,6 +844,8 @@ class _EmployerCreateEmployeePageState
           ? null
           : _phoneController.text.trim(),
       documentNumber: _documentController.text.trim(),
+      bankName: _bankNameController.text.trim(),
+      bankAccount: _bankAccountController.text.trim(),
     );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -581,13 +855,11 @@ class _EmployerCreateEmployeePageState
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          companyProvider.errorMessage ?? 'No se pudo crear el empleado.',
-        ),
-        backgroundColor: const Color(0xFFDC2626),
-      ),
+    await AppPopup.show(
+      context,
+      title: 'No se pudo crear',
+      message: companyProvider.errorMessage ?? 'No se pudo crear el empleado.',
+      type: AppPopupType.error,
     );
   }
 }

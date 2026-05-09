@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/widgets/app_popup.dart';
 import '../../../advances/data/models/advance_model.dart';
 import '../../../advances/presentation/providers/advance_provider.dart';
 import '../../../companies/data/models/company_model.dart';
@@ -473,13 +474,11 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
           if (created == true && mounted) {
             await _load();
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Empleado creado. Se enviaron las credenciales al correo.',
-                ),
-                backgroundColor: Color(0xFF047857),
-              ),
+            await AppPopup.show(
+              context,
+              title: 'Empleado creado',
+              message: 'Se enviaron las credenciales de acceso al correo.',
+              type: AppPopupType.success,
             );
           }
         },
@@ -587,6 +586,14 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: 'Despedir empleado',
+                onPressed: () => _confirmDismissEmployee(employee),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFFDC2626),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -597,6 +604,16 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
                   'Salario',
                   _money(employee.salary),
                   const Color(0xFFECFDF5),
+                  trailing: IconButton(
+                    tooltip: 'Editar salario',
+                    onPressed: () => _editSalary(employee),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 18,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -786,7 +803,12 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
     );
   }
 
-  Widget _infoBox(String label, String value, Color color) {
+  Widget _infoBox(
+    String label,
+    String value,
+    Color color, {
+    Widget trailing = const SizedBox.shrink(),
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -796,9 +818,19 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              trailing,
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -813,6 +845,326 @@ class _EmployerEmployeesPageState extends State<EmployerEmployeesPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _confirmDismissEmployee(EmployeeModel employee) async {
+    final confirmed = await AppPopup.confirm(
+      context,
+      title: 'Confirmar despido',
+      message:
+          '¿Esta seguro que quiere despedir al empleado ${employee.name} con salario ${_money(employee.salary)}?',
+      type: AppPopupType.warning,
+      primaryLabel: 'Si, despedir',
+      secondaryLabel: 'Cancelar',
+    );
+    if (!confirmed || !mounted) return;
+
+    final companyProvider = context.read<CompanyProvider>();
+    final ok = await companyProvider.removeEmployee(employee.id);
+    if (!mounted) return;
+    if (ok) {
+      await _load();
+      if (!mounted) return;
+      await AppPopup.show(
+        context,
+        title: 'Empleado despedido',
+        message: '${employee.name} fue retirado del equipo.',
+        type: AppPopupType.success,
+      );
+      return;
+    }
+    await AppPopup.show(
+      context,
+      title: 'No se pudo despedir',
+      message:
+          companyProvider.errorMessage ??
+          'No fue posible despedir al empleado.',
+      type: AppPopupType.error,
+    );
+  }
+
+  Future<void> _editSalary(EmployeeModel employee) async {
+    final controller = TextEditingController(
+      text: employee.salary.round().toString(),
+    );
+    final newSalary = await _showSalaryEditor(employee, controller);
+    if (newSalary == null || newSalary <= 0 || !mounted) return;
+
+    final confirmed = await AppPopup.confirm(
+      context,
+      title: 'Confirmar cambio',
+      message:
+          '¿Deseas actualizar el salario de ${employee.name} a ${_money(newSalary)}?',
+      type: AppPopupType.info,
+      primaryLabel: 'Si, actualizar',
+      secondaryLabel: 'Cancelar',
+    );
+    if (!confirmed || !mounted) return;
+
+    final companyProvider = context.read<CompanyProvider>();
+    final ok = await companyProvider.updateEmployee(
+      employee.id,
+      salary: newSalary,
+    );
+    if (!mounted) return;
+    if (ok) {
+      await _load();
+      if (!mounted) return;
+      await AppPopup.show(
+        context,
+        title: 'Salario actualizado',
+        message: '${employee.name} ahora tiene salario ${_money(newSalary)}.',
+        type: AppPopupType.success,
+      );
+      return;
+    }
+    await AppPopup.show(
+      context,
+      title: 'No se pudo actualizar',
+      message:
+          companyProvider.errorMessage ?? 'No fue posible guardar el salario.',
+      type: AppPopupType.error,
+    );
+  }
+
+  Future<double?> _showSalaryEditor(
+    EmployeeModel employee,
+    TextEditingController controller,
+  ) {
+    return showGeneralDialog<double>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Cerrar',
+      barrierColor: Colors.black.withValues(alpha: 0.36),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, _) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.88,
+              constraints: const BoxConstraints(maxWidth: 390),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF047857).withValues(alpha: 0.22),
+                    blurRadius: 34,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(26),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF064E3B),
+                            Color(0xFF059669),
+                            Color(0xFF14B8A6),
+                          ],
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: const Icon(
+                              Icons.edit_outlined,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Modificar salario',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  employee.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFFD1FAE5),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFA7F3D0),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.payments_outlined,
+                                  color: Color(0xFF047857),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Salario actual',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      Text(
+                                        _money(employee.salary),
+                                        style: const TextStyle(
+                                          color: Color(0xFF111827),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: controller,
+                            keyboardType: TextInputType.number,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              labelText: 'Nuevo salario',
+                              prefixText: '\$ ',
+                              prefixStyle: const TextStyle(
+                                color: Color(0xFF047857),
+                                fontWeight: FontWeight.w900,
+                              ),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF10B981),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF64748B),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 13,
+                                    ),
+                                  ),
+                                  child: const Text('Cancelar'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    final parsed = double.tryParse(
+                                      controller.text
+                                          .replaceAll('.', '')
+                                          .replaceAll(',', ''),
+                                    );
+                                    Navigator.pop(dialogContext, parsed);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF047857),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 13,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Continuar',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, _, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
   }
 

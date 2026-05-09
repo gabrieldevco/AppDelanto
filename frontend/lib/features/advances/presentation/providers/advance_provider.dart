@@ -101,20 +101,9 @@ class AdvanceProvider extends ChangeNotifier {
   }
 
   String _friendlyError(Object error) {
-    var message = error.toString();
-    for (final prefix in [
-      'ApiException: ',
-      'Exception: ',
-      'Error al solicitar adelanto: ',
-      'Error inesperado: ',
-    ]) {
-      if (message.startsWith(prefix)) {
-        message = message.substring(prefix.length);
-      }
-    }
-    if (message.contains(' (Status:')) {
-      message = message.split(' (Status:').first;
-    }
+    final message = error is ApiException
+        ? error.userMessage
+        : ApiException.cleanErrorMessage(error);
     if (message.contains('Tu empleador debe aprobar tu vinculacion')) {
       return 'Debes esperar a que tu empleador verifique tu informacion para poder solicitar adelantos.';
     }
@@ -219,7 +208,7 @@ class AdvanceProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = AdvanceStatus.error;
-      _errorMessage = 'Error al marcar incompleto: ${e.toString()}';
+      _errorMessage = _friendlyError(e);
       notifyListeners();
       return false;
     }
@@ -238,7 +227,7 @@ class AdvanceProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = AdvanceStatus.error;
-      _errorMessage = 'Error al marcar reembolsado: ${e.toString()}';
+      _errorMessage = _friendlyError(e);
       notifyListeners();
       return false;
     }
@@ -257,7 +246,7 @@ class AdvanceProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = AdvanceStatus.error;
-      _errorMessage = 'Error al deshacer reembolso: ${e.toString()}';
+      _errorMessage = _friendlyError(e);
       notifyListeners();
       return false;
     }

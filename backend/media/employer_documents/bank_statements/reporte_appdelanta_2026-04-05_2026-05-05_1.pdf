@@ -1,0 +1,85 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj
+6 0 obj << /Length 3796 >> stream
+q 0.98 0.98 1 rg 0.0 0.0 612.0 792.0 re f Q
+q 0.31 0.18 0.81 rg 36.0 704.0 540.0 58.0 re f Q
+q 0.49 0.22 0.86 rg 36.0 690.0 540.0 14.0 re f Q
+BT 1 1 1 rg /F2 22.0 Tf 56.0 736.0 Td (Reporte Appdelanta) Tj ET
+BT 0.88 0.84 1 rg /F1 10.0 Tf 56.0 718.0 Td (Periodo: 2026-04-05 - 2026-05-05) Tj ET
+BT 0.88 0.84 1 rg /F1 9.0 Tf 410.0 718.0 Td (Generado con filtros actuales) Tj ET
+BT 0.07 0.09 0.15 rg /F2 15.0 Tf 40.0 666.0 Td (Resumen del periodo) Tj ET
+q 0.93 0.98 0.96 rg 40.0 590.0 160.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 40.0 590.0 160.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 54.0 626.0 Td (Desembolsado) Tj ET
+BT 0.05 0.59 0.53 rg /F2 15.0 Tf 54.0 606.0 Td ($ 500.000) Tj ET
+q 0.96 0.95 1 rg 226.0 590.0 160.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 226.0 590.0 160.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 240.0 626.0 Td (Recuperado) Tj ET
+BT 0.31 0.27 0.90 rg /F2 15.0 Tf 240.0 606.0 Td ($ 0) Tj ET
+q 0.99 0.95 1 rg 412.0 590.0 160.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 412.0 590.0 160.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 426.0 626.0 Td (Ganancias) Tj ET
+BT 0.49 0.18 0.80 rg /F2 15.0 Tf 426.0 606.0 Td ($ 25.417) Tj ET
+BT 0.07 0.09 0.15 rg /F2 13.0 Tf 40.0 552.0 Td (Detalle financiero) Tj ET
+q 1 1 1 rg 40.0 480.0 254.0 54.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 40.0 480.0 254.0 54.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 10.0 Tf 56.0 512.0 Td (Fees por transacciones) Tj ET
+BT 0.31 0.27 0.90 rg /F2 14.0 Tf 56.0 492.0 Td ($ 15.000) Tj ET
+q 1 1 1 rg 318.0 480.0 254.0 54.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 318.0 480.0 254.0 54.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 10.0 Tf 334.0 512.0 Td (Intereses) Tj ET
+BT 0.86 0.15 0.15 rg /F2 14.0 Tf 334.0 492.0 Td ($ 10.417) Tj ET
+BT 0.07 0.09 0.15 rg /F2 13.0 Tf 40.0 442.0 Td (Solicitudes y cobertura) Tj ET
+q 0.96 0.95 1 rg 40.0 366.0 120.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 40.0 366.0 120.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 54.0 402.0 Td (Total solicitudes) Tj ET
+BT 0.31 0.27 0.90 rg /F2 15.0 Tf 54.0 382.0 Td (2) Tj ET
+q 0.93 0.98 0.96 rg 178.0 366.0 120.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 178.0 366.0 120.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 192.0 402.0 Td (Aprobadas) Tj ET
+BT 0.05 0.59 0.53 rg /F2 15.0 Tf 192.0 382.0 Td (2) Tj ET
+q 1 0.95 0.95 rg 316.0 366.0 120.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 316.0 366.0 120.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 330.0 402.0 Td (Rechazadas) Tj ET
+BT 0.86 0.15 0.15 rg /F2 15.0 Tf 330.0 382.0 Td (0) Tj ET
+q 0.96 0.98 1 rg 454.0 366.0 118.0 58.0 re f Q
+q 0.88 0.90 0.94 RG 0.8 w 454.0 366.0 118.0 58.0 re S Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 468.0 402.0 Td (Empleados) Tj ET
+BT 0.08 0.41 0.76 rg /F2 15.0 Tf 468.0 382.0 Td (3) Tj ET
+BT 0.07 0.09 0.15 rg /F2 13.0 Tf 40.0 326.0 Td (Desglose por empleador) Tj ET
+q 0.95 0.93 1 rg 40.0 302.0 532.0 20.0 re f Q
+BT 0.31 0.27 0.90 rg /F2 8.0 Tf 48.0 309.0 Td (Empleador) Tj ET
+BT 0.31 0.27 0.90 rg /F2 8.0 Tf 246.0 309.0 Td (Emp.) Tj ET
+BT 0.31 0.27 0.90 rg /F2 8.0 Tf 292.0 309.0 Td (Sol.) Tj ET
+BT 0.31 0.27 0.90 rg /F2 8.0 Tf 338.0 309.0 Td (Desembolsado) Tj ET
+BT 0.31 0.27 0.90 rg /F2 8.0 Tf 430.0 309.0 Td (Recuperado) Tj ET
+BT 0.31 0.27 0.90 rg /F2 8.0 Tf 508.0 309.0 Td (Ganancias) Tj ET
+q 0.98 0.98 1 rg 40.0 274.0 532.0 20.0 re f Q
+q 0.91 0.93 0.96 RG 0.8 w 40.0 274.0 532.0 20.0 re S Q
+BT 0.07 0.09 0.15 rg /F1 8.5 Tf 48.0 280.0 Td (YONI IMPORTADORA SAS) Tj ET
+BT 0.07 0.09 0.15 rg /F1 8.5 Tf 250.0 280.0 Td (1) Tj ET
+BT 0.07 0.09 0.15 rg /F1 8.5 Tf 296.0 280.0 Td (5) Tj ET
+BT 0.07 0.09 0.15 rg /F1 8.5 Tf 338.0 280.0 Td ($ 500.000) Tj ET
+BT 0.07 0.09 0.15 rg /F1 8.5 Tf 430.0 280.0 Td ($ 0) Tj ET
+BT 0.07 0.09 0.15 rg /F1 8.5 Tf 508.0 280.0 Td ($ 25.417) Tj ET
+q 0.96 0.95 1 rg 36.0 34.0 540.0 24.0 re f Q
+BT 0.39 0.45 0.55 rg /F1 9.0 Tf 50.0 43.0 Td (Appdelanta | Reporte administrativo) Tj ET
+
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+4244
+%%EOF

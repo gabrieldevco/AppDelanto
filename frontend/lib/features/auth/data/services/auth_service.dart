@@ -15,6 +15,8 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    await _apiService.clearAuthToken();
+
     final response = await _apiService.post(
       ApiConstants.authLogin,
       data: {'email': email.trim().toLowerCase(), 'password': password},
@@ -43,6 +45,7 @@ class AuthService {
     String? companyName,
     String? companyTaxId,
     String? companyAddress,
+    String? companyCity,
     int? companyId,
     File? rutDocument,
     File? chamberOfCommerceFile,
@@ -84,6 +87,9 @@ class AuthService {
       }
       if (companyAddress != null && companyAddress.isNotEmpty) {
         formMap['company_address'] = companyAddress;
+      }
+      if (companyCity != null && companyCity.isNotEmpty) {
+        formMap['company_city'] = companyCity;
       }
       if (bankAccount != null && bankAccount.isNotEmpty) {
         formMap['bank_account'] = bankAccount;

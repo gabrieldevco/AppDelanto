@@ -11,8 +11,51 @@ class ApiException implements Exception {
 
   ApiException({required this.message, this.statusCode, this.data});
 
+  String get userMessage => cleanErrorMessage(message);
+
   @override
-  String toString() => 'ApiException: $message (Status: $statusCode)';
+  String toString() => userMessage;
+
+  static String cleanErrorMessage(dynamic value) {
+    var message = value?.toString().trim() ?? '';
+    if (message.isEmpty || message.toLowerCase() == 'null') {
+      return 'Ocurrio un error. Intenta nuevamente.';
+    }
+
+    message = message
+        .replaceAll(RegExp(r'ApiException:\s*'), '')
+        .replaceAll(RegExp(r'Exception:\s*'), '')
+        .replaceAll(RegExp(r'Error inesperado:\s*'), '')
+        .replaceAll(RegExp(r'^Error al [^:]+:\s*'), '')
+        .replaceAll(RegExp(r'^Error al [^:]+ empleado:\s*'), '')
+        .replaceAll(RegExp(r'\s*\(Status:\s*null\)\s*'), '')
+        .replaceAll(RegExp(r'\s*\(Status:\s*\d+\)\s*'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    final lower = message.toLowerCase();
+    if (lower.contains('assertionerror') ||
+        lower.contains('traceback') ||
+        lower.contains('request method') ||
+        lower.contains('request url') ||
+        lower.contains('<html') ||
+        lower.contains('doctype html')) {
+      return 'No se pudo completar la operacion. Intenta nuevamente.';
+    }
+
+    if (lower.contains('email') &&
+        lower.contains('ya existe') &&
+        lower.contains('correo')) {
+      return 'Ya existe un usuario con ese correo';
+    }
+
+    final fieldMatch = RegExp(r'^[a-zA-Z_]+:\s*(.+)$').firstMatch(message);
+    if (fieldMatch != null) {
+      message = fieldMatch.group(1)?.trim() ?? message;
+    }
+
+    return message.isEmpty ? 'Ocurrio un error. Intenta nuevamente.' : message;
+  }
 }
 
 class ApiService {
@@ -210,15 +253,15 @@ class ApiService {
       final errorData = response.data;
       String errorMessage = 'Error en la solicitud';
       if (errorData is Map && errorData.containsKey('error')) {
-        errorMessage = errorData['error'];
+        errorMessage = ApiException.cleanErrorMessage(errorData['error']);
       } else if (errorData is Map) {
         // Extraer errores de validación de Django
         final errors = <String>[];
         errorData.forEach((key, value) {
           if (value is List) {
-            errors.add('$key: ${value.join(', ')}');
+            errors.add(_formatFieldError(key, value.join(', ')));
           } else {
-            errors.add('$key: $value');
+            errors.add(_formatFieldError(key, value));
           }
         });
         if (errors.isNotEmpty) {
@@ -250,10 +293,10 @@ class ApiService {
 
     if (error.response != null) {
       return ApiException(
-        message:
-            error.response?.data?['detail'] ??
-            error.response?.data?['error'] ??
-            'Error en la solicitud',
+        message: _extractErrorMessage(
+          error.response?.data,
+          fallback: 'Error en la solicitud',
+        ),
         statusCode: error.response?.statusCode,
         data: error.response?.data,
       );
@@ -262,6 +305,44 @@ class ApiService {
     return ApiException(
       message: 'Error de conexión: ${error.message}',
       statusCode: null,
+    );
+  }
+
+  String _extractErrorMessage(dynamic data, {required String fallback}) {
+    if (data is Map) {
+      final direct = data['detail'] ?? data['error'] ?? data['message'];
+      if (direct != null && direct.toString().trim().isNotEmpty) {
+        return ApiException.cleanErrorMessage(direct);
+      }
+
+      final errors = <String>[];
+      data.forEach((key, value) {
+        if (value is List) {
+          errors.add(_formatFieldError(key, value.join(', ')));
+        } else if (value != null) {
+          errors.add(_formatFieldError(key, value));
+        }
+      });
+      if (errors.isNotEmpty) return errors.join('\n');
+    }
+
+    if (data is String && data.trim().isNotEmpty) {
+      final clean = data
+          .replaceAll(RegExp(r'<[^>]*>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      final message = clean.length > 260
+          ? '${clean.substring(0, 260)}...'
+          : clean;
+      return ApiException.cleanErrorMessage(message);
+    }
+
+    return fallback;
+  }
+
+  String _formatFieldError(dynamic key, dynamic value) {
+    return ApiException.cleanErrorMessage(
+      '${key.toString()}: ${value.toString()}',
     );
   }
 }

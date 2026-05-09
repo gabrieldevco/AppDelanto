@@ -122,21 +122,15 @@ class AdvanceService {
   }
 
   Future<AdvanceModel> recoverAdvance(int id) async {
-    final response = await _apiService.patch(
-      '${ApiConstants.advances}$id/',
-      data: {
-        'status': 'recovered',
-        'notes': 'Pago recibido marcado como reembolsado',
-      },
+    final response = await _apiService.post(
+      '${ApiConstants.advances}$id/recover/',
     );
     return AdvanceModel.fromJson(response);
   }
 
   Future<AdvanceModel> unrecoverAdvance(int id) async {
-    final response = await _apiService.post(
-      '${ApiConstants.advances}$id/unrecover/',
-    );
-    return AdvanceModel.fromJson(response);
+    await _apiService.post('${ApiConstants.advances}$id/unrecover/');
+    return getAdvance(id);
   }
 
   // Cancelar solicitud propia (empleado)

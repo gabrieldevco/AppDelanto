@@ -41,9 +41,55 @@ class CompanyProvider extends ChangeNotifier {
       _status = CompanyStatus.loaded;
     } catch (e) {
       _status = CompanyStatus.error;
-      _errorMessage = 'Error al cargar empresa: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
     }
     notifyListeners();
+  }
+
+  Future<bool> uploadPlatformContract(File file) async {
+    if (_myCompany == null) return false;
+
+    _status = CompanyStatus.submitting;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _myCompany = await _companyService.uploadPlatformContract(
+        companyId: _myCompany!.id,
+        file: file,
+      );
+      _status = CompanyStatus.success;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = CompanyStatus.error;
+      _errorMessage = _messageFromError(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> uploadSubscriptionReceipt(File file) async {
+    if (_myCompany == null) return false;
+
+    _status = CompanyStatus.submitting;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _myCompany = await _companyService.uploadSubscriptionReceipt(
+        companyId: _myCompany!.id,
+        file: file,
+      );
+      _status = CompanyStatus.success;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = CompanyStatus.error;
+      _errorMessage = _messageFromError(e);
+      notifyListeners();
+      return false;
+    }
   }
 
   // Crear empresa
@@ -82,7 +128,7 @@ class CompanyProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = CompanyStatus.error;
-      _errorMessage = 'Error al crear empresa: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
       notifyListeners();
       return false;
     }
@@ -126,7 +172,7 @@ class CompanyProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = CompanyStatus.error;
-      _errorMessage = 'Error al actualizar empresa: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
       notifyListeners();
       return false;
     }
@@ -147,7 +193,7 @@ class CompanyProvider extends ChangeNotifier {
       _status = CompanyStatus.loaded;
     } catch (e) {
       _status = CompanyStatus.error;
-      _errorMessage = 'Error al cargar empleados: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
     }
     notifyListeners();
   }
@@ -162,6 +208,8 @@ class CompanyProvider extends ChangeNotifier {
     required double salary,
     String? phone,
     String? documentNumber,
+    String? bankAccount,
+    String? bankName,
     DateTime? hireDate,
     File? contractFile,
     String? contractTitle,
@@ -183,6 +231,8 @@ class CompanyProvider extends ChangeNotifier {
         salary: salary,
         phone: phone,
         documentNumber: documentNumber,
+        bankAccount: bankAccount,
+        bankName: bankName,
         hireDate: hireDate,
         contractFile: contractFile,
         contractTitle: contractTitle,
@@ -194,7 +244,7 @@ class CompanyProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _status = CompanyStatus.error;
-      _errorMessage = 'Error al agregar empleado: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
       notifyListeners();
       return false;
     }
@@ -229,7 +279,7 @@ class CompanyProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      _errorMessage = 'Error al actualizar empleado: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
       notifyListeners();
       return false;
     }
@@ -245,7 +295,7 @@ class CompanyProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = 'Error al eliminar empleado: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
       notifyListeners();
       return false;
     }
@@ -288,7 +338,7 @@ class CompanyProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = 'Error al actualizar configuración: ${e.toString()}';
+      _errorMessage = _messageFromError(e);
       notifyListeners();
       return false;
     }
@@ -313,6 +363,11 @@ class CompanyProvider extends ChangeNotifier {
       _status = CompanyStatus.initial;
     }
     notifyListeners();
+  }
+
+  String _messageFromError(Object error) {
+    if (error is ApiException) return error.userMessage;
+    return ApiException.cleanErrorMessage(error);
   }
 
   // Limpiar datos

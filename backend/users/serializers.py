@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from .models import User, EmployeeProfile, AdminProfile
 
 
@@ -18,6 +19,22 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """Serializer para registro de usuarios"""
+    username = serializers.CharField(
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message='Este nombre de usuario ya esta registrado'
+            )
+        ]
+    )
+    email = serializers.EmailField(
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message='Este correo electronico ya esta registrado'
+            )
+        ]
+    )
     password = serializers.CharField(write_only=True, min_length=6)
     password_confirm = serializers.CharField(write_only=True)
     salary = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
@@ -25,6 +42,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(required=False, allow_blank=True)
     company_tax_id = serializers.CharField(required=False, allow_blank=True)
     company_address = serializers.CharField(required=False, allow_blank=True)
+    company_city = serializers.CharField(required=False, allow_blank=True)
     bank_account = serializers.CharField(required=False, allow_blank=True)
     bank_name = serializers.CharField(required=False, allow_blank=True)
     company_id = serializers.IntegerField(required=False, allow_null=True)
@@ -47,7 +65,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'username', 'email', 'password', 'password_confirm',
             'first_name', 'last_name', 'role', 'phone', 'document_number',
             'salary', 'business_name', 'company_name', 'company_tax_id',
-            'company_address', 'bank_account', 'bank_name', 'company_id',
+            'company_address', 'company_city', 'bank_account', 'bank_name', 'company_id',
             'rut_document',
             'chamber_of_commerce_document',
             'legal_representative_id_document', 'bank_statements_document',
@@ -69,6 +87,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             data['email'] = data['email'].strip().lower()
         if data.get('username'):
             data['username'] = data['username'].strip().lower()
+
+        # Validar que el username no exista
+        username = data.get('username', '').strip()
+        if username and User.objects.filter(username=username).exists():
+            raise serializers.ValidationError({'username': 'Este nombre de usuario ya esta registrado'})
+        
+        # Validar que el email no exista
+        email = data.get('email', '').strip().lower()
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({'email': 'Este correo electronico ya esta registrado'})
 
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError({'password': 'Las contrasenas no coinciden'})
@@ -94,21 +122,32 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'company_tax_id': 'El NIT es requerido para empleadores'})
             if not data.get('company_address'):
                 raise serializers.ValidationError({'company_address': 'La direccion es requerida para empleadores'})
+            if not data.get('company_city'):
+                raise serializers.ValidationError({'company_city': 'La ciudad es requerida para empleadores'})
             for field_name in self.employer_document_fields:
                 if not data.get(field_name):
                     raise serializers.ValidationError({
                         field_name: 'Este documento es requerido para empleadores'
                     })
                 self._validate_document_file(field_name, data[field_name])
+            
+            # Validar que el NIT no exista en otra empresa
+            from companies.models import Company
+            company_tax_id = data.get('company_tax_id', '').strip()
+            if company_tax_id and Company.objects.filter(tax_id=company_tax_id).exists():
+                raise serializers.ValidationError({'company_tax_id': 'Ya existe una empresa registrada con este NIT'})
 
         return data
 
     def create(self, validated_data):
+        from django.db import IntegrityError
+        
         salary = validated_data.pop('salary', None)
         business_name = validated_data.pop('business_name', '')
         company_name = validated_data.pop('company_name', '')
         company_tax_id = validated_data.pop('company_tax_id', '')
         company_address = validated_data.pop('company_address', '')
+        company_city = validated_data.pop('company_city', '')
         bank_account = validated_data.pop('bank_account', '')
         bank_name = validated_data.pop('bank_name', '')
         company_id = validated_data.pop('company_id', None)
@@ -119,16 +158,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         validated_data.pop('password_confirm')
 
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            role=validated_data.get('role', 'employer'),
-            phone=validated_data.get('phone', ''),
-            document_number=validated_data.get('document_number', ''),
-        )
+        try:
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                email=validated_data['email'],
+                password=validated_data['password'],
+                first_name=validated_data.get('first_name', ''),
+                last_name=validated_data.get('last_name', ''),
+                role=validated_data.get('role', 'employer'),
+                phone=validated_data.get('phone', ''),
+                document_number=validated_data.get('document_number', ''),
+            )
+        except IntegrityError as e:
+            error_msg = str(e).lower()
+            if 'username' in error_msg:
+                raise serializers.ValidationError({'username': 'Este nombre de usuario ya esta registrado'})
+            elif 'email' in error_msg:
+                raise serializers.ValidationError({'email': 'Este correo electronico ya esta registrado'})
+            else:
+                raise serializers.ValidationError({'error': 'Error al crear el usuario. Intenta con otro nombre de usuario o correo.'})
 
         if user.role == 'employee':
             self._create_employee_profile(user, salary, bank_account, bank_name, company_id)
@@ -139,6 +187,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 company_name,
                 company_tax_id,
                 company_address,
+                company_city,
                 employer_documents,
             )
         elif user.role == 'admin':
@@ -215,6 +264,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         company_name,
         company_tax_id,
         company_address,
+        company_city,
         employer_documents,
     ):
         """Crear empresa para empleador"""
@@ -225,6 +275,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             legal_name=business_name,
             tax_id=company_tax_id,
             address=company_address,
+            city=company_city,
             admin=user,
             phone=user.phone or '',
             email=user.email,

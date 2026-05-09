@@ -47,6 +47,11 @@ class AdminProvider extends ChangeNotifier {
 
     try {
       await _adminService.verifyCompany(companyId);
+      try {
+        _settings = await _adminService.getSettings();
+      } catch (_) {
+        // La verificacion ya fue exitosa; el dashboard puede refrescar settings luego.
+      }
       _isLoading = false;
       notifyListeners();
       return true;

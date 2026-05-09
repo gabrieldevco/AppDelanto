@@ -4,6 +4,7 @@ class CompanyModel {
   final String? legalName;
   final String? taxId;
   final String? address;
+  final String? city;
   final String? phone;
   final String? email;
   final int? adminId;
@@ -12,6 +13,11 @@ class CompanyModel {
   final double advanceFeePercentage;
   final bool isActive;
   final bool isVerified;
+  final bool isPreapproved;
+  final String? platformContractFileUrl;
+  final DateTime? platformContractUploadedAt;
+  final String? subscriptionReceiptFileUrl;
+  final DateTime? subscriptionReceiptUploadedAt;
   final int employeeCount;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -25,6 +31,7 @@ class CompanyModel {
     this.legalName,
     this.taxId,
     this.address,
+    this.city,
     this.phone,
     this.email,
     this.adminId,
@@ -33,6 +40,11 @@ class CompanyModel {
     required this.advanceFeePercentage,
     required this.isActive,
     required this.isVerified,
+    this.isPreapproved = false,
+    this.platformContractFileUrl,
+    this.platformContractUploadedAt,
+    this.subscriptionReceiptFileUrl,
+    this.subscriptionReceiptUploadedAt,
     this.employeeCount = 0,
     required this.createdAt,
     required this.updatedAt,
@@ -51,6 +63,7 @@ class CompanyModel {
       legalName: json['legal_name'],
       taxId: json['tax_id'],
       address: json['address'],
+      city: json['city'],
       phone: json['phone'],
       email: json['email'],
       adminId: json['admin'],
@@ -63,6 +76,19 @@ class CompanyModel {
       ),
       isActive: json['is_active'] ?? true,
       isVerified: json['is_verified'] ?? false,
+      isPreapproved: json['is_preapproved'] ?? false,
+      platformContractFileUrl:
+          json['platform_contract_file_url'] ?? json['platform_contract_file'],
+      platformContractUploadedAt: json['platform_contract_uploaded_at'] != null
+          ? DateTime.tryParse(json['platform_contract_uploaded_at'])
+          : null,
+      subscriptionReceiptFileUrl:
+          json['subscription_receipt_file_url'] ??
+          json['subscription_receipt_file'],
+      subscriptionReceiptUploadedAt:
+          json['subscription_receipt_uploaded_at'] != null
+          ? DateTime.tryParse(json['subscription_receipt_uploaded_at'])
+          : null,
       employeeCount: json['employee_count'] ?? 0,
       createdAt: createdAt,
       updatedAt: json['updated_at'] != null
@@ -83,6 +109,7 @@ class CompanyModel {
       'legal_name': legalName,
       'tax_id': taxId,
       'address': address,
+      'city': city,
       'phone': phone,
       'email': email,
       'admin': adminId,
@@ -91,6 +118,13 @@ class CompanyModel {
       'advance_fee_percentage': advanceFeePercentage,
       'is_active': isActive,
       'is_verified': isVerified,
+      'is_preapproved': isPreapproved,
+      'platform_contract_file_url': platformContractFileUrl,
+      'platform_contract_uploaded_at': platformContractUploadedAt
+          ?.toIso8601String(),
+      'subscription_receipt_file_url': subscriptionReceiptFileUrl,
+      'subscription_receipt_uploaded_at': subscriptionReceiptUploadedAt
+          ?.toIso8601String(),
       'employee_count': employeeCount,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -108,6 +142,7 @@ class CompanyModel {
     String? legalName,
     String? taxId,
     String? address,
+    String? city,
     String? phone,
     String? email,
     int? adminId,
@@ -116,6 +151,11 @@ class CompanyModel {
     double? advanceFeePercentage,
     bool? isActive,
     bool? isVerified,
+    bool? isPreapproved,
+    String? platformContractFileUrl,
+    DateTime? platformContractUploadedAt,
+    String? subscriptionReceiptFileUrl,
+    DateTime? subscriptionReceiptUploadedAt,
     int? employeeCount,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -129,6 +169,7 @@ class CompanyModel {
       legalName: legalName ?? this.legalName,
       taxId: taxId ?? this.taxId,
       address: address ?? this.address,
+      city: city ?? this.city,
       phone: phone ?? this.phone,
       email: email ?? this.email,
       adminId: adminId ?? this.adminId,
@@ -137,6 +178,15 @@ class CompanyModel {
       advanceFeePercentage: advanceFeePercentage ?? this.advanceFeePercentage,
       isActive: isActive ?? this.isActive,
       isVerified: isVerified ?? this.isVerified,
+      isPreapproved: isPreapproved ?? this.isPreapproved,
+      platformContractFileUrl:
+          platformContractFileUrl ?? this.platformContractFileUrl,
+      platformContractUploadedAt:
+          platformContractUploadedAt ?? this.platformContractUploadedAt,
+      subscriptionReceiptFileUrl:
+          subscriptionReceiptFileUrl ?? this.subscriptionReceiptFileUrl,
+      subscriptionReceiptUploadedAt:
+          subscriptionReceiptUploadedAt ?? this.subscriptionReceiptUploadedAt,
       employeeCount: employeeCount ?? this.employeeCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

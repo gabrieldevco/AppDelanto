@@ -223,17 +223,31 @@ class Company {
   final int id;
   final String name;
   final String? legalName;
+  final String? taxId;
+  final String? address;
+  final String? city;
   final String? email;
   final String? phone;
   final bool isActive;
+  final bool isVerified;
+  final bool isPreapproved;
+  final String? platformContractFileUrl;
+  final DateTime? platformContractUploadedAt;
 
   Company({
     required this.id,
     required this.name,
     this.legalName,
+    this.taxId,
+    this.address,
+    this.city,
     this.email,
     this.phone,
     this.isActive = true,
+    this.isVerified = false,
+    this.isPreapproved = false,
+    this.platformContractFileUrl,
+    this.platformContractUploadedAt,
   });
 
   factory Company.fromJson(Map<String, dynamic> json) {
@@ -241,9 +255,19 @@ class Company {
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       legalName: json['legal_name'],
+      taxId: json['tax_id'],
+      address: json['address'],
+      city: json['city'],
       email: json['email'],
       phone: json['phone'],
       isActive: json['is_active'] ?? true,
+      isVerified: json['is_verified'] ?? false,
+      isPreapproved: json['is_preapproved'] ?? false,
+      platformContractFileUrl:
+          json['platform_contract_file_url'] ?? json['platform_contract_file'],
+      platformContractUploadedAt: json['platform_contract_uploaded_at'] != null
+          ? DateTime.tryParse(json['platform_contract_uploaded_at'])
+          : null,
     );
   }
 
@@ -252,9 +276,17 @@ class Company {
       'id': id,
       'name': name,
       'legal_name': legalName,
+      'tax_id': taxId,
+      'address': address,
+      'city': city,
       'email': email,
       'phone': phone,
       'is_active': isActive,
+      'is_verified': isVerified,
+      'is_preapproved': isPreapproved,
+      'platform_contract_file_url': platformContractFileUrl,
+      'platform_contract_uploaded_at': platformContractUploadedAt
+          ?.toIso8601String(),
     };
   }
 }

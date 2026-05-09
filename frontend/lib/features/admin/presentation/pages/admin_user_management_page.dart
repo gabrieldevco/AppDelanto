@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/core/services/api_service.dart';
+import 'package:frontend/core/widgets/app_popup.dart';
 import 'package:frontend/features/admin/presentation/widgets/admin_bottom_nav.dart';
 import 'package:frontend/features/admin/presentation/widgets/admin_header.dart';
 import 'package:frontend/features/admin/presentation/widgets/admin_notifications_drawer.dart';
@@ -78,16 +79,57 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
     return <dynamic>[];
   }
 
-  Future<void> _verifyCompany(int companyId, bool verify) async {
+  Future<void> _verifyCompany(
+    int companyId,
+    bool verify, {
+    Map<String, dynamic>? company,
+  }) async {
     try {
       await apiService.patch(
         '/api/companies/$companyId/verify/',
         data: {'is_verified': verify},
       );
-      _showSnack(verify ? 'Empresa verificada' : 'Verificacion removida');
+      if (!mounted) return;
+      await AppPopup.show(
+        context,
+        title: verify ? 'Empresa verificada' : 'Verificacion removida',
+        message: verify
+            ? 'Felicidades, tu empresa esta verificada.'
+            : 'La empresa quedo pendiente de verificacion.',
+        type: verify ? AppPopupType.success : AppPopupType.undo,
+      );
       await _loadEmployers();
-    } catch (_) {
-      _showSnack('Error al verificar empresa', isError: true);
+    } catch (e) {
+      if (!mounted) return;
+      await AppPopup.show(
+        context,
+        title: 'Error al verificar empresa',
+        message: _friendlyError(e),
+        type: AppPopupType.error,
+      );
+    }
+  }
+
+  Future<void> _preapproveCompany(int companyId) async {
+    try {
+      await apiService.post('/api/companies/$companyId/preapprove/');
+      if (!mounted) return;
+      await AppPopup.show(
+        context,
+        title: 'Empresa preaprobada',
+        message:
+            'El empleador ya puede ingresar para descargar y adjuntar el contrato firmado.',
+        type: AppPopupType.success,
+      );
+      await _loadEmployers();
+    } catch (e) {
+      if (!mounted) return;
+      await AppPopup.show(
+        context,
+        title: 'No se pudo preaprobar',
+        message: _friendlyError(e),
+        type: AppPopupType.error,
+      );
     }
   }
 
@@ -170,6 +212,24 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
                   companyData['bank_statements_document_url'] ??
                   companyData['bank_statements_document'],
             ),
+            _EmployerDocument(
+              title: 'Contrato firmado AppDelanta',
+              url:
+                  companyData['platform_contract_file_url'] ??
+                  companyData['platform_contract_file'],
+              highlight:
+                  companyData['platform_contract_file_url'] != null ||
+                  companyData['platform_contract_file'] != null,
+            ),
+            _EmployerDocument(
+              title: 'Volante de suscripcion',
+              url:
+                  companyData['subscription_receipt_file_url'] ??
+                  companyData['subscription_receipt_file'],
+              highlight:
+                  companyData['subscription_receipt_file_url'] != null ||
+                  companyData['subscription_receipt_file'] != null,
+            ),
           ],
           onOpen: _openDocument,
         ),
@@ -199,14 +259,29 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
 
   void _showSnack(String message, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError
-            ? const Color(0xFFDC2626)
-            : const Color(0xFF0D9488),
-      ),
+    AppPopup.show(
+      context,
+      title: message,
+      message: isError
+          ? 'Revisa el detalle e intenta nuevamente.'
+          : 'La accion se completo correctamente.',
+      type: isError ? AppPopupType.error : AppPopupType.success,
     );
+  }
+
+  String _friendlyError(Object error) {
+    if (error is ApiException) return error.message;
+
+    var message = error.toString();
+    for (final prefix in ['ApiException: ', 'Exception: ']) {
+      if (message.startsWith(prefix)) {
+        message = message.substring(prefix.length);
+      }
+    }
+    if (message.contains(' (Status:')) {
+      message = message.split(' (Status:').first;
+    }
+    return message.trim().isEmpty ? 'Intenta nuevamente.' : message;
   }
 
   void _showDeleteConfirmation(
@@ -445,6 +520,15 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
           final employer = _employers[index];
           final company = employer['company'];
           final isVerified = company?['is_verified'] ?? false;
+          final isPreapproved = company?['is_preapproved'] ?? false;
+          final hasPendingDocs =
+              ((company?['platform_contract_file_url'] ??
+                          company?['platform_contract_file']) !=
+                      null ||
+                  (company?['subscription_receipt_file_url'] ??
+                          company?['subscription_receipt_file']) !=
+                      null) &&
+              !isVerified;
           return _buildEmployerCard(
             name:
                 '${employer['first_name'] ?? ''} ${employer['last_name'] ?? ''}',
@@ -454,6 +538,8 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
             companyId: company?['id'],
             userId: employer['id'],
             isVerified: isVerified,
+            isPreapproved: isPreapproved,
+            hasNewContract: hasPendingDocs,
             company: company,
           );
         },
@@ -542,6 +628,8 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
     int? companyId,
     required int userId,
     required bool isVerified,
+    required bool isPreapproved,
+    required bool hasNewContract,
     Map<String, dynamic>? company,
   }) {
     final displayName = name.trim().isEmpty ? 'Sin nombre' : name.trim();
@@ -560,7 +648,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
               _avatar(const Color(0xFF7C3AED), Icons.business),
               const SizedBox(width: 12),
               Expanded(child: _identity(displayName, email, '')),
-              _statusBadge(isVerified),
+              _statusBadge(isVerified, isPreapproved),
             ],
           ),
           const SizedBox(height: 12),
@@ -592,9 +680,17 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
                   icon: Icons.folder_open_outlined,
                   label: 'Ver documentacion',
                   color: const Color(0xFF7C3AED),
+                  showDot: hasNewContract,
                   onPressed: () => _showDocumentation(company),
                 ),
-              if (companyId != null)
+              if (companyId != null && !isVerified && !isPreapproved)
+                _softAction(
+                  icon: Icons.verified_user_outlined,
+                  label: 'Preaprobar',
+                  color: const Color(0xFF0D9488),
+                  onPressed: () => _preapproveCompany(companyId),
+                ),
+              if (companyId != null && (isVerified || isPreapproved))
                 _softAction(
                   icon: isVerified
                       ? Icons.remove_circle_outline
@@ -603,7 +699,8 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
                   color: isVerified
                       ? const Color(0xFFF59E0B)
                       : const Color(0xFF0D9488),
-                  onPressed: () => _verifyCompany(companyId, !isVerified),
+                  onPressed: () =>
+                      _verifyCompany(companyId, !isVerified, company: company),
                 ),
               _softAction(
                 icon: Icons.person_remove,
@@ -763,10 +860,17 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
     );
   }
 
-  Widget _statusBadge(bool isVerified) {
+  Widget _statusBadge(bool isVerified, bool isPreapproved) {
     final color = isVerified
         ? const Color(0xFF0D9488)
+        : isPreapproved
+        ? const Color(0xFF2563EB)
         : const Color(0xFFF59E0B);
+    final label = isVerified
+        ? 'Verificado'
+        : isPreapproved
+        ? 'Preaprobado'
+        : 'Pendiente';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -777,13 +881,17 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isVerified ? Icons.verified : Icons.pending,
+            isVerified
+                ? Icons.verified
+                : isPreapproved
+                ? Icons.verified_user_outlined
+                : Icons.pending,
             size: 13,
             color: color,
           ),
           const SizedBox(width: 4),
           Text(
-            isVerified ? 'Verificado' : 'Pendiente',
+            label,
             style: TextStyle(
               fontSize: 11,
               color: color,
@@ -865,19 +973,43 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
     required String label,
     required Color color,
     required VoidCallback onPressed,
+    bool showDot = false,
   }) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 17),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.35)),
-        backgroundColor: color.withValues(alpha: 0.06),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-      ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 17),
+          label: Text(label),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: color,
+            side: BorderSide(color: color.withValues(alpha: 0.35)),
+            backgroundColor: color.withValues(alpha: 0.06),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (showDot)
+          Positioned(
+            top: -3,
+            right: -3,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: Color(0xFFDC2626),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -885,8 +1017,13 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
 class _EmployerDocument {
   final String title;
   final String? url;
+  final bool highlight;
 
-  const _EmployerDocument({required this.title, this.url});
+  const _EmployerDocument({
+    required this.title,
+    this.url,
+    this.highlight = false,
+  });
 
   bool get hasFile => url != null && url!.isNotEmpty;
 }
@@ -1029,7 +1166,9 @@ class _EmployerDocumentationPage extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: document.hasFile
+                        color: document.highlight
+                            ? const Color(0xFFDC2626)
+                            : document.hasFile
                             ? const Color(0xFFE9D5FF)
                             : const Color(0xFFE2E8F0),
                       ),
@@ -1077,6 +1216,17 @@ class _EmployerDocumentationPage extends StatelessWidget {
                                   color: Color(0xFF111827),
                                 ),
                               ),
+                              if (document.highlight) ...[
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Nuevo contrato por revisar',
+                                  style: TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 5),
                               Container(
                                 padding: const EdgeInsets.symmetric(

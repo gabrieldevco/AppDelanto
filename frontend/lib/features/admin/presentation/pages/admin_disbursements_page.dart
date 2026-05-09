@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/widgets/app_popup.dart';
 import '../../../advances/data/models/advance_model.dart';
 import '../../../advances/presentation/providers/advance_provider.dart';
+import '../providers/admin_provider.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/admin_header.dart';
 import '../widgets/admin_notifications_drawer.dart';
@@ -36,6 +38,14 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
 
   Future<void> _load() async {
     await context.read<AdvanceProvider>().loadMyAdvances();
+  }
+
+  Future<void> _refreshCapital() async {
+    try {
+      await context.read<AdminProvider>().loadSettings();
+    } catch (_) {
+      // The disbursement flow should not fail if the dashboard provider is absent.
+    }
   }
 
   void _ensureTabControllerLength() {
@@ -601,29 +611,7 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
     final controller = TextEditingController(
       text: 'Transferencia adelanto #${advance.id}',
     );
-    final reference = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Completar desembolso'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Referencia',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: const Text('Completar'),
-          ),
-        ],
-      ),
-    );
+    final reference = await _showCompleteDialog(advance, controller);
     controller.dispose();
     if (reference == null) return;
 
@@ -634,13 +622,17 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
           : reference.trim(),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Desembolso completado' : 'No se pudo completar'),
-      ),
+    await AppPopup.show(
+      context,
+      title: ok ? 'Desembolso completado' : 'No se pudo completar',
+      message: ok
+          ? 'El adelanto paso a Completados.'
+          : provider.errorMessage ?? 'Intenta nuevamente.',
+      type: ok ? AppPopupType.success : AppPopupType.error,
     );
     if (ok) {
       _tabController.animateTo(1);
+      await _refreshCapital();
       await _load();
     }
   }
@@ -651,7 +643,7 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
       advance: advance,
       title: 'Marcar como reembolsado',
       message:
-          'El adelanto pasara a Pagos recibidos y el cupo del empleado se restaurara.',
+          'Entrara al capital el Total adelanto (${_money(advance.totalAmount)}) y el cupo del empleado se restaurara.',
       icon: Icons.payments_outlined,
       accentColor: const Color(0xFF0EA5E9),
       confirmLabel: 'Confirmar',
@@ -660,16 +652,211 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
 
     final ok = await provider.recoverAdvance(advance.id);
     if (!mounted) return;
-    final errorMessage = provider.errorMessage ?? 'No se pudo marcar';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Pago marcado como reembolsado' : errorMessage),
-      ),
+    await AppPopup.show(
+      context,
+      title: ok ? 'Pago recibido' : 'No se pudo marcar',
+      message: ok
+          ? 'El Total adelanto (${_money(advance.totalAmount)}) ingreso al capital.'
+          : provider.errorMessage ?? 'Intenta nuevamente.',
+      type: ok ? AppPopupType.recovered : AppPopupType.error,
     );
     if (ok) {
       _tabController.animateTo(2);
+      await _refreshCapital();
       await _load();
     }
+  }
+
+  Future<String?> _showCompleteDialog(
+    AdvanceModel advance,
+    TextEditingController controller,
+  ) {
+    const accent = Color(0xFF7C3AED);
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 410),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.24),
+                blurRadius: 34,
+                offset: const Offset(0, 18),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF4C1D95), Color(0xFF7C3AED)],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Completar desembolso',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              'Se descontara del capital disponible',
+                              style: TextStyle(
+                                color: Color(0xFFEDE9FE),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAF7FF),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFE9D5FF)),
+                        ),
+                        child: Column(
+                          children: [
+                            _dialogInfoRow(
+                              Icons.person_outline,
+                              advance.employeeName,
+                              _money(advance.amount),
+                            ),
+                            const SizedBox(height: 10),
+                            _dialogInfoRow(
+                              Icons.account_balance_outlined,
+                              _valueOrMissing(advance.employeeBankName),
+                              _valueOrMissing(advance.employeeBankAccount),
+                            ),
+                            const SizedBox(height: 10),
+                            _dialogInfoRow(
+                              Icons.receipt_long_outlined,
+                              'Total adelanto',
+                              _money(advance.totalAmount),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          labelText: 'Referencia',
+                          prefixIcon: const Icon(
+                            Icons.confirmation_number_outlined,
+                            color: accent,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: accent,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF64748B),
+                                minimumSize: const Size(0, 48),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              child: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, controller.text),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: accent,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                minimumSize: const Size(0, 48),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              child: const Text('Completar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _undoRecovered(AdvanceModel advance) async {
@@ -678,7 +865,7 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
       advance: advance,
       title: 'Deshacer reembolso',
       message:
-          'El adelanto volvera a Completados por si marcaste el pago por error.',
+          'El adelanto volvera a Completados y se descontara del capital ${_money(advance.totalAmount)}.',
       icon: Icons.undo_rounded,
       accentColor: const Color(0xFFF97316),
       confirmLabel: 'Deshacer',
@@ -687,12 +874,17 @@ class _AdminDisbursementsPageState extends State<AdminDisbursementsPage>
 
     final ok = await provider.unrecoverAdvance(advance.id);
     if (!mounted) return;
-    final errorMessage = provider.errorMessage ?? 'No se pudo deshacer';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'Reembolso deshecho' : errorMessage)),
+    await AppPopup.show(
+      context,
+      title: ok ? 'Reembolso deshecho' : 'No se pudo deshacer',
+      message: ok
+          ? 'Se desconto del capital ${_money(advance.totalAmount)}.'
+          : provider.errorMessage ?? 'Intenta nuevamente.',
+      type: ok ? AppPopupType.undo : AppPopupType.error,
     );
     if (ok) {
       _tabController.animateTo(1);
+      await _refreshCapital();
       await _load();
     }
   }

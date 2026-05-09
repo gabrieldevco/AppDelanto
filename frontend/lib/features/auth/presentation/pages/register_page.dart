@@ -28,6 +28,7 @@ class RegisterStep2Data {
   String employerCompanyName = '';
   String companyTaxId = '';
   String companyAddress = '';
+  String companyCity = '';
   File? rutDocument;
   String rutFileName = '';
   File? chamberOfCommerceFile;
@@ -514,6 +515,14 @@ class _RegisterPageState extends State<RegisterPage> {
               validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
             ),
             const SizedBox(height: 16),
+            _buildTextField(
+              label: 'Ciudad',
+              hint: 'Barranquilla',
+              onChanged: (v) => step2.companyCity = v,
+              keyboardType: TextInputType.text,
+              validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+            ),
+            const SizedBox(height: 16),
             _buildEmployerDocumentsSection(),
           ],
           const SizedBox(height: 24),
@@ -615,6 +624,7 @@ class _RegisterPageState extends State<RegisterPage> {
       companyName: step2.employerCompanyName,
       companyTaxId: step2.companyTaxId,
       companyAddress: step2.companyAddress,
+      companyCity: step2.companyCity,
       companyId: null,
       rutDocument: step2.rutDocument,
       chamberOfCommerceFile: step2.chamberOfCommerceFile,
@@ -868,6 +878,7 @@ class _RegisterPageState extends State<RegisterPage> {
       companyName: step2.employerCompanyName,
       companyTaxId: step2.companyTaxId,
       companyAddress: step2.companyAddress,
+      companyCity: step2.companyCity,
       companyId: step2.companyId,
       rutDocument: step2.rutDocument,
       chamberOfCommerceFile: step2.chamberOfCommerceFile,

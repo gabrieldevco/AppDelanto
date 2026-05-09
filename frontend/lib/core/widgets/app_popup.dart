@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-enum AppPopupType { success, error, warning, info }
+import '../services/api_service.dart';
+
+enum AppPopupType { success, error, warning, info, recovered, undo }
 
 class AppPopup {
   static void _safePop<T extends Object?>(BuildContext context, [T? result]) {
@@ -18,6 +20,9 @@ class AppPopup {
     AppPopupType type = AppPopupType.info,
     String primaryLabel = 'Aceptar',
   }) {
+    final displayMessage = type == AppPopupType.error
+        ? ApiException.cleanErrorMessage(message)
+        : message;
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -27,7 +32,7 @@ class AppPopup {
       pageBuilder: (context, animation, secondaryAnimation) {
         return _AppPopupCard(
           title: title,
-          message: message,
+          message: displayMessage,
           type: type,
           primaryLabel: primaryLabel,
           onPrimary: () => _safePop(context),
@@ -291,6 +296,18 @@ class _AppPopupCard extends StatelessWidget {
         darkColor: Color(0xFF5B21B6),
         softColor: Color(0xFFF5F3FF),
         icon: Icons.info_outline,
+      ),
+      AppPopupType.recovered => const _PopupTheme(
+        color: Color(0xFF0EA5E9),
+        darkColor: Color(0xFF0284C7),
+        softColor: Color(0xFFF0F9FF),
+        icon: Icons.payments_outlined,
+      ),
+      AppPopupType.undo => const _PopupTheme(
+        color: Color(0xFFF59E0B),
+        darkColor: Color(0xFFD97706),
+        softColor: Color(0xFFFFFBEB),
+        icon: Icons.arrow_back_rounded,
       ),
     };
   }
