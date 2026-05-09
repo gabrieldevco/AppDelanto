@@ -7,11 +7,12 @@ class ApiConstants {
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // Local Docker: backend exposed on 8001 by docker-compose.local.yml.
-    // Android emulator reaches the host machine through 10.0.2.2.
-    // For web/desktop use:
-    // --dart-define=API_BASE_URL=http://localhost:8001
-    defaultValue: 'http://10.0.2.2:8001',
+    // Servidor VPS production
+    // Para desarrollo local con emulador Android usar 10.0.2.2
+    // Para iOS simulator usar localhost
+    // Para web usar localhost
+    // Para dispositivo físico, usar la IP de la máquina
+    defaultValue: 'http://2.24.78.224:8000',
   );
 
   // Endpoints API
