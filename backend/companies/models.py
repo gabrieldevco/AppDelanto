@@ -303,6 +303,73 @@ class PlatformSettings(models.Model):
         return 'ConfiguraciÃ³n global de plataforma'
 
 
+class PlatformCapitalMovement(models.Model):
+    MOVEMENT_TYPES = [
+        ('entry', 'Entrada'),
+        ('exit', 'Salida'),
+    ]
+
+    movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
+    concept = models.CharField(max_length=180)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=14, decimal_places=2)
+    actor = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='capital_movements',
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='capital_movements',
+    )
+    advance = models.ForeignKey(
+        'advances.Advance',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='capital_movements',
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        verbose_name = 'Movimiento de capital'
+        verbose_name_plural = 'Movimientos de capital'
+
+    @classmethod
+    def record(
+        cls,
+        *,
+        movement_type,
+        concept,
+        amount,
+        balance_after,
+        actor=None,
+        company=None,
+        advance=None,
+        metadata=None,
+    ):
+        return cls.objects.create(
+            movement_type=movement_type,
+            concept=concept,
+            amount=amount,
+            balance_after=balance_after,
+            actor=actor,
+            company=company,
+            advance=advance,
+            metadata=metadata or {},
+        )
+
+    def __str__(self):
+        return f"{self.get_movement_type_display()} - {self.concept} - ${self.amount}"
+
+
 class FeeRange(models.Model):
     min_amount = models.DecimalField(max_digits=12, decimal_places=2)
     max_amount = models.DecimalField(max_digits=12, decimal_places=2)

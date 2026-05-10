@@ -139,7 +139,11 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   }
 
   Future<void> _restoreDefaults() async {
-    setState(_setDefaultControllers);
+    final currentCapital = _initialCapitalController.text;
+    setState(() {
+      _setDefaultControllers();
+      _initialCapitalController.text = currentCapital;
+    });
     await _saveSettings();
   }
 
@@ -147,7 +151,6 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     final payload = {
       'interest_rate_monthly': _interestController.text,
       'max_salary_percentage': _salaryPercentController.text,
-      'initial_capital': _initialCapitalController.text,
       'min_days': int.tryParse(_minDaysController.text) ?? 1,
       'max_days': int.tryParse(_maxDaysController.text) ?? 30,
       'fee_ranges': _fees
@@ -186,6 +189,39 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
       message: success
           ? 'Los parametros globales ya quedaron actualizados.'
           : (adminProvider.error ?? 'Revisa los datos e intenta nuevamente.'),
+      type: success ? AppPopupType.success : AppPopupType.error,
+    );
+  }
+
+  Future<void> _showCapitalMovementDialog({required bool deposit}) async {
+    final amount = await showDialog<String>(
+      context: context,
+      builder: (_) => _CapitalMovementDialog(
+        deposit: deposit,
+        currentCapital: _initialCapitalController.text,
+      ),
+    );
+    if (amount == null || amount.trim().isEmpty) return;
+    if (!mounted) return;
+
+    final adminProvider = context.read<AdminProvider>();
+    final success = await adminProvider.moveCapital(
+      action: deposit ? 'deposit' : 'withdraw',
+      amount: amount.trim().replaceAll(',', '.'),
+    );
+    if (!mounted) return;
+    if (success) {
+      _hydrated = false;
+      _hydrate(adminProvider.settings);
+    }
+    await AppPopup.show(
+      context,
+      title: success
+          ? (deposit ? 'Fondos aumentados' : 'Fondos retirados')
+          : 'No se pudo mover fondos',
+      message: success
+          ? 'El capital de la plataforma fue actualizado.'
+          : (adminProvider.error ?? 'Revisa el monto e intenta nuevamente.'),
       type: success ? AppPopupType.success : AppPopupType.error,
     );
   }
@@ -387,9 +423,28 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                   decimal: true,
                 ),
                 const SizedBox(height: 16),
-                _textField(
-                  'Capital inicial de la plataforma',
-                  _initialCapitalController,
+                _capitalBalanceCard(),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _fundButton(
+                        'Aumentar fondos',
+                        Icons.add_circle_outline,
+                        const Color(0xFF059669),
+                        () => _showCapitalMovementDialog(deposit: true),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _fundButton(
+                        'Retirar fondos',
+                        Icons.remove_circle_outline,
+                        const Color(0xFFDC2626),
+                        () => _showCapitalMovementDialog(deposit: false),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -653,6 +708,84 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     );
   }
 
+  Widget _capitalBalanceCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD7DEE8)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_outlined,
+              color: Color(0xFF2563EB),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Capital actual de la plataforma',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatMoney(_initialCapitalController.text),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fundButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onPressed,
+  ) {
+    return SizedBox(
+      height: 46,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18, color: color),
+        label: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: color, fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: color.withValues(alpha: 0.35)),
+          backgroundColor: color.withValues(alpha: 0.08),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+      ),
+    );
+  }
+
   Widget _warningCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -666,6 +799,18 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
         style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
       ),
     );
+  }
+
+  String _formatMoney(dynamic value) {
+    final amount = double.tryParse('${value ?? ''}'.replaceAll(',', '.')) ?? 0;
+    final cents = ((amount - amount.truncate()).abs() * 100).round();
+    final whole = amount.truncate().toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (match) => '.',
+    );
+    return cents == 0
+        ? '\$ $whole'
+        : '\$ $whole,${cents.toString().padLeft(2, '0')}';
   }
 }
 
@@ -726,5 +871,211 @@ class _WindowControllers {
     start.dispose();
     end.dispose();
     process.dispose();
+  }
+}
+
+class _CapitalMovementDialog extends StatefulWidget {
+  final bool deposit;
+  final String currentCapital;
+
+  const _CapitalMovementDialog({
+    required this.deposit,
+    required this.currentCapital,
+  });
+
+  @override
+  State<_CapitalMovementDialog> createState() => _CapitalMovementDialogState();
+}
+
+class _CapitalMovementDialogState extends State<_CapitalMovementDialog> {
+  final _amountController = TextEditingController();
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final value = _amountController.text.trim();
+    if (value.isEmpty) return;
+    final amount = _toDouble(value);
+    final currentCapital = _toDouble(widget.currentCapital);
+    if (amount <= 0 || (!widget.deposit && amount > currentCapital)) return;
+    FocusScope.of(context).unfocus();
+    Navigator.of(context).pop(value.replaceAll(',', '.'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.deposit
+        ? const Color(0xFF059669)
+        : const Color(0xFFDC2626);
+    final currentCapital = _toDouble(widget.currentCapital);
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      titlePadding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
+      contentPadding: const EdgeInsets.fromLTRB(22, 14, 22, 10),
+      actionsPadding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+      title: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              widget.deposit
+                  ? Icons.add_circle_outline
+                  : Icons.remove_circle_outline,
+              color: color,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(widget.deposit ? 'Aumentar fondos' : 'Retirar fondos'),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _balancePanel(
+            label: 'Capital actual',
+            value: _formatMoney(currentCapital),
+            color: const Color(0xFF2563EB),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _amountController,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _confirm(),
+            decoration: InputDecoration(
+              labelText: widget.deposit
+                  ? 'Monto a aumentar'
+                  : 'Monto a retirar',
+              prefixIcon: const Icon(Icons.attach_money, size: 18),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFD7DEE8)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFD7DEE8)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: color, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _amountController,
+            builder: (context, value, _) {
+              final entered = _toDouble(value.text);
+              final projected = widget.deposit
+                  ? currentCapital + entered
+                  : currentCapital - entered;
+              return _balancePanel(
+                label: 'Capital despues del movimiento',
+                value: _formatMoney(projected),
+                color: projected < 0 ? const Color(0xFFDC2626) : color,
+              );
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancelar'),
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _amountController,
+          builder: (context, value, _) {
+            final amount = _toDouble(value.text);
+            final valid =
+                amount > 0 && (widget.deposit || amount <= currentCapital);
+            return ElevatedButton(
+              onPressed: valid ? _confirm : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                disabledBackgroundColor: const Color(0xFFCBD5E1),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Confirmar',
+                style: TextStyle(color: Colors.white),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _balancePanel({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _toDouble(dynamic value) =>
+      double.tryParse('${value ?? ''}'.replaceAll(',', '.')) ?? 0;
+
+  String _formatMoney(double amount) {
+    final cents = ((amount - amount.truncate()).abs() * 100).round();
+    final whole = amount.truncate().toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (match) => '.',
+    );
+    return cents == 0
+        ? '\$ $whole'
+        : '\$ $whole,${cents.toString().padLeft(2, '0')}';
   }
 }

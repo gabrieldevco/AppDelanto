@@ -138,6 +138,30 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> moveCapital({
+    required String action,
+    required String amount,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _settings = await _adminService.moveCapital(
+        action: action,
+        amount: amount,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Error al mover fondos: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Limpiar error
   void clearError() {
     _error = null;

@@ -13,7 +13,7 @@ from .serializers import (
     AdvanceStatusUpdateSerializer, AdvanceListSerializer
 )
 from notifications.models import Notification
-from companies.models import PlatformSettings
+from companies.models import PlatformCapitalMovement, PlatformSettings
 
 
 def notify_admins_advance_ready(advance):
@@ -391,6 +391,16 @@ def disburse_advance(request, pk):
 
         settings.initial_capital -= advance.amount
         settings.save(update_fields=['initial_capital', 'updated_at'])
+        PlatformCapitalMovement.record(
+            movement_type='exit',
+            concept='Desembolso de adelanto',
+            amount=advance.amount,
+            balance_after=settings.initial_capital,
+            actor=user,
+            company=advance.company,
+            advance=advance,
+            metadata={'status': 'disbursed'},
+        )
 
         # Actualizar limite disponible del empleado
         advance.employee.available_advance_limit -= advance.amount
@@ -445,6 +455,16 @@ def undisburse_advance(request, pk):
         )
         settings.initial_capital += advance.amount
         settings.save(update_fields=['initial_capital', 'updated_at'])
+        PlatformCapitalMovement.record(
+            movement_type='entry',
+            concept='Reversion de desembolso',
+            amount=advance.amount,
+            balance_after=settings.initial_capital,
+            actor=user,
+            company=advance.company,
+            advance=advance,
+            metadata={'status': 'approved'},
+        )
 
         advance.employee.available_advance_limit += advance.amount
         advance.employee.save()
@@ -490,6 +510,20 @@ def recover_advance(request, pk):
 
         settings.initial_capital += advance.total_amount
         settings.save(update_fields=['initial_capital', 'updated_at'])
+        PlatformCapitalMovement.record(
+            movement_type='entry',
+            concept='Recuperacion de adelanto',
+            amount=advance.total_amount,
+            balance_after=settings.initial_capital,
+            actor=user,
+            company=advance.company,
+            advance=advance,
+            metadata={
+                'capital': str(advance.amount),
+                'fee': str(advance.fee),
+                'interest': str(advance.total_amount - advance.amount - advance.fee),
+            },
+        )
 
         advance.employee.available_advance_limit += advance.amount
         advance.employee.save()
@@ -548,6 +582,16 @@ def unrecover_advance(request, pk):
 
         settings.initial_capital -= advance.total_amount
         settings.save(update_fields=['initial_capital', 'updated_at'])
+        PlatformCapitalMovement.record(
+            movement_type='exit',
+            concept='Reversion de recuperacion',
+            amount=advance.total_amount,
+            balance_after=settings.initial_capital,
+            actor=user,
+            company=advance.company,
+            advance=advance,
+            metadata={'status': 'disbursed'},
+        )
 
         advance.employee.available_advance_limit -= advance.amount
         advance.employee.save()

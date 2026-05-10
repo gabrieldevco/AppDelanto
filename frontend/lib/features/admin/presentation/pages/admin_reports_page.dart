@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/widgets/app_popup.dart';
 import '../providers/admin_provider.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/admin_header.dart';
@@ -58,6 +59,23 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     return '\$ $formatted';
   }
 
+  String _dateTime(dynamic value) {
+    final parsed = DateTime.tryParse('${value ?? ''}');
+    if (parsed == null) return '${value ?? ''}';
+    return '${parsed.day.toString().padLeft(2, '0')}/'
+        '${parsed.month.toString().padLeft(2, '0')}/'
+        '${parsed.year} '
+        '${parsed.hour.toString().padLeft(2, '0')}:'
+        '${parsed.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _signedCurrency(Map item) {
+    final amount = _currency(item['amount']);
+    if (item['movement_type'] == 'exit') return '-$amount';
+    if (item['movement_type'] == 'entry') return '+$amount';
+    return amount;
+  }
+
   Future<void> _pickDate({required bool start}) async {
     final picked = await showDatePicker(
       context: context,
@@ -81,7 +99,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
   Future<void> _exportExcel() async {
     final report = context.read<AdminProvider>().reports;
     if (report == null || report.isEmpty) {
-      _showExportMessage(
+      await _showExportMessage(
         'Excel',
         success: false,
         detail: 'No hay datos para exportar',
@@ -103,7 +121,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
   Future<void> _exportPdf() async {
     final report = context.read<AdminProvider>().reports;
     if (report == null || report.isEmpty) {
-      _showExportMessage(
+      await _showExportMessage(
         'PDF',
         success: false,
         detail: 'No hay datos para exportar',
@@ -139,14 +157,18 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
 
       if (!mounted) return;
       if (path == null) {
-        _showExportMessage(type, success: false, detail: 'Guardado cancelado');
+        await _showExportMessage(
+          type,
+          success: false,
+          detail: 'Guardado cancelado',
+        );
         return;
       }
 
-      _showExportMessage(type);
+      await _showExportMessage(type);
     } catch (e) {
       if (!mounted) return;
-      _showExportMessage(
+      await _showExportMessage(
         type,
         success: false,
         detail: 'No se pudo guardar: $e',
@@ -154,16 +176,16 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     }
   }
 
-  void _showExportMessage(String type, {bool success = true, String? detail}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          detail ?? 'Reporte $type generado con los filtros actuales',
-        ),
-        backgroundColor: success
-            ? const Color(0xFF0D9488)
-            : const Color(0xFFDC2626),
-      ),
+  Future<void> _showExportMessage(
+    String type, {
+    bool success = true,
+    String? detail,
+  }) {
+    return AppPopup.show(
+      context,
+      title: success ? 'Reporte $type generado' : 'No se pudo generar',
+      message: detail ?? 'El archivo fue generado con los filtros actuales.',
+      type: success ? AppPopupType.success : AppPopupType.error,
     );
   }
 
@@ -179,6 +201,8 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     final processed = report['processed'] as Map<String, dynamic>? ?? {};
     final totals = report['totals'] as Map<String, dynamic>? ?? {};
     final breakdown = report['breakdown'] as List? ?? const [];
+    final employeesDetail = report['employees_detail'] as List? ?? const [];
+    final extracts = report['extracts'] as List? ?? const [];
 
     final rows = StringBuffer()
       ..writeln('<tr><th colspan="2">Resumen del periodo</th></tr>')
@@ -198,6 +222,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
       ..writeln('<tr><td>Fees</td><td>${_currency(summary['fees'])}</td></tr>')
       ..writeln(
         '<tr><td>Intereses</td><td>${_currency(summary['interest'])}</td></tr>',
+      )
+      ..writeln(
+        '<tr><td>Suscripciones</td><td>${_currency(summary['subscriptions'])}</td></tr>',
       )
       ..writeln('<tr><th colspan="2">Solicitudes</th></tr>')
       ..writeln('<tr><td>Total</td><td>${_toInt(processed['total'])}</td></tr>')
@@ -220,11 +247,49 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
       final employer = item as Map;
       employerRows.writeln(
         '<tr><td>${_plain(employer['name'])}</td>'
+        '<td>${_plain(employer['employer_name'])}</td>'
+        '<td>${_plain(employer['employer_document'])}</td>'
         '<td>${_toInt(employer['employees'])}</td>'
         '<td>${_toInt(employer['requests'])}</td>'
         '<td>${_currency(employer['disbursed'])}</td>'
         '<td>${_currency(employer['recovered'])}</td>'
+        '<td>${_currency(employer['fees'])}</td>'
+        '<td>${_currency(employer['interest'])}</td>'
+        '<td>${_currency(employer['subscriptions'])}</td>'
         '<td>${_currency(employer['earnings'])}</td></tr>',
+      );
+    }
+
+    final employeeRows = StringBuffer();
+    for (final item in employeesDetail) {
+      final employee = item as Map;
+      employeeRows.writeln(
+        '<tr>'
+        '<td>${_plain(employee['name'])}</td>'
+        '<td>${_plain(employee['document'])}</td>'
+        '<td>${_plain(employee['company'])}</td>'
+        '<td>${_currency(employee['salary'])}</td>'
+        '<td>${_currency(employee['advanced'])}</td>'
+        '</tr>',
+      );
+    }
+
+    final extractRows = StringBuffer();
+    for (final item in extracts) {
+      final extract = item as Map;
+      extractRows.writeln(
+        '<tr>'
+        '<td>${_plain(_dateTime(extract['date']))}</td>'
+        '<td>${_plain(extract['direction'])}</td>'
+        '<td>${_plain(extract['concept'])}</td>'
+        '<td>${_plain(extract['company'])}</td>'
+        '<td>${_plain(extract['employee'])}</td>'
+        '<td>${_plain(extract['actor'])}</td>'
+        '<td>${_plain(_signedCurrency(extract))}</td>'
+        '<td>${_plain(extract['fee'])}</td>'
+        '<td>${_plain(extract['interest'])}</td>'
+        '<td>${_plain(extract['balance_after'])}</td>'
+        '</tr>',
       );
     }
 
@@ -246,10 +311,28 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
   <h2>Desglose por empleador</h2>
   <table>
     <tr>
-      <th>Empleador</th><th>Empleados</th><th>Solicitudes</th>
-      <th>Desembolsado</th><th>Recuperado</th><th>Ganancias</th>
+      <th>Empleador</th><th>Usuario empleador</th><th>CC empleador</th>
+      <th>Empleados</th><th>Solicitudes</th>
+      <th>Desembolsado</th><th>Recuperado</th><th>Fees</th>
+      <th>Intereses</th><th>Suscripciones</th><th>Ganancias</th>
     </tr>
     $employerRows
+  </table>
+  <h2>Empleados</h2>
+  <table>
+    <tr>
+      <th>Empleado</th><th>CC</th><th>Empresa</th><th>Salario</th><th>Adelantado</th>
+    </tr>
+    $employeeRows
+  </table>
+  <h2>Extractos</h2>
+  <table>
+    <tr>
+      <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Empresa</th>
+      <th>Empleado</th><th>Administrador</th><th>Monto</th>
+      <th>Fee</th><th>Interes</th><th>Saldo</th>
+    </tr>
+    $extractRows
   </table>
 </body>
 </html>
@@ -261,6 +344,8 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     final processed = report['processed'] as Map<String, dynamic>? ?? {};
     final totals = report['totals'] as Map<String, dynamic>? ?? {};
     final breakdown = report['breakdown'] as List? ?? const [];
+    final employeesDetail = report['employees_detail'] as List? ?? const [];
+    final extracts = report['extracts'] as List? ?? const [];
 
     final content = StringBuffer();
 
@@ -355,9 +440,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     );
 
     text('Detalle financiero', 40, 552, size: 13, font: 'F2');
-    fillRect(40, 480, 254, 54, '1 1 1');
-    strokeRect(40, 480, 254, 54, '0.88 0.90 0.94');
-    text('Fees por transacciones', 56, 512, size: 10, rgb: '0.39 0.45 0.55');
+    fillRect(40, 480, 160, 54, '1 1 1');
+    strokeRect(40, 480, 160, 54, '0.88 0.90 0.94');
+    text('Fees', 56, 512, size: 10, rgb: '0.39 0.45 0.55');
     text(
       _currency(summary['fees']),
       56,
@@ -366,16 +451,27 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
       font: 'F2',
       rgb: '0.31 0.27 0.90',
     );
-    fillRect(318, 480, 254, 54, '1 1 1');
-    strokeRect(318, 480, 254, 54, '0.88 0.90 0.94');
-    text('Intereses', 334, 512, size: 10, rgb: '0.39 0.45 0.55');
+    fillRect(226, 480, 160, 54, '1 1 1');
+    strokeRect(226, 480, 160, 54, '0.88 0.90 0.94');
+    text('Intereses', 242, 512, size: 10, rgb: '0.39 0.45 0.55');
     text(
       _currency(summary['interest']),
-      334,
+      242,
       492,
       size: 14,
       font: 'F2',
       rgb: '0.86 0.15 0.15',
+    );
+    fillRect(412, 480, 160, 54, '1 1 1');
+    strokeRect(412, 480, 160, 54, '0.88 0.90 0.94');
+    text('Suscripciones', 428, 512, size: 10, rgb: '0.39 0.45 0.55');
+    text(
+      _currency(summary['subscriptions']),
+      428,
+      492,
+      size: 14,
+      font: 'F2',
+      rgb: '0.05 0.59 0.53',
     );
 
     text('Solicitudes y cobertura', 40, 442, size: 13, font: 'F2');
@@ -419,11 +515,11 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
     text('Desglose por empleador', 40, 326, size: 13, font: 'F2');
     fillRect(40, 302, 532, 20, '0.95 0.93 1');
     text('Empleador', 48, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
-    text('Emp.', 246, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
-    text('Sol.', 292, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
-    text('Desembolsado', 338, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
-    text('Recuperado', 430, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
-    text('Ganancias', 508, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Usuario', 168, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('CC', 280, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Emp.', 338, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Desemb.', 384, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Ganancia', 482, 309, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
 
     var rowY = 280.0;
     if (breakdown.isEmpty) {
@@ -435,7 +531,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         rgb: '0.39 0.45 0.55',
       );
     } else {
-      for (final item in breakdown.take(10)) {
+      for (final item in breakdown.take(3)) {
         final employer = item as Map;
         final fill = ((302 - rowY) / 22).round().isEven
             ? '1 1 1'
@@ -444,17 +540,75 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         strokeRect(40, rowY - 6, 532, 20, '0.91 0.93 0.96');
         final name = '${employer['name'] ?? ''}';
         text(
-          name.length > 32 ? '${name.substring(0, 32)}...' : name,
+          name.length > 18 ? '${name.substring(0, 18)}...' : name,
           48,
           rowY,
           size: 8.5,
         );
-        text('${_toInt(employer['employees'])}', 250, rowY, size: 8.5);
-        text('${_toInt(employer['requests'])}', 296, rowY, size: 8.5);
-        text(_currency(employer['disbursed']), 338, rowY, size: 8.5);
-        text(_currency(employer['recovered']), 430, rowY, size: 8.5);
-        text(_currency(employer['earnings']), 508, rowY, size: 8.5);
+        final employerName = '${employer['employer_name'] ?? ''}';
+        text(
+          employerName.length > 17
+              ? '${employerName.substring(0, 17)}...'
+              : employerName,
+          168,
+          rowY,
+          size: 8.5,
+        );
+        text('${employer['employer_document'] ?? ''}', 280, rowY, size: 8.5);
+        text('${_toInt(employer['employees'])}', 342, rowY, size: 8.5);
+        text(_currency(employer['disbursed']), 384, rowY, size: 8.5);
+        text(_currency(employer['earnings']), 482, rowY, size: 8.5);
         rowY -= 22;
+      }
+    }
+
+    text('Extractos', 40, 220, size: 13, font: 'F2');
+    fillRect(40, 196, 532, 20, '0.95 0.93 1');
+    text('Fecha', 48, 203, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Tipo', 118, 203, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Concepto', 178, 203, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Empresa', 330, 203, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Monto', 454, 203, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+    text('Saldo', 520, 203, size: 8, font: 'F2', rgb: '0.31 0.27 0.90');
+
+    var extractY = 174.0;
+    if (extracts.isEmpty) {
+      text(
+        'Sin extractos para el periodo',
+        48,
+        extractY,
+        size: 9,
+        rgb: '0.39 0.45 0.55',
+      );
+    } else {
+      for (final item in extracts.take(4)) {
+        final extract = item as Map;
+        fillRect(40, extractY - 6, 532, 20, '1 1 1');
+        strokeRect(40, extractY - 6, 532, 20, '0.91 0.93 0.96');
+        final concept = '${extract['concept'] ?? ''}';
+        final company = '${extract['company'] ?? ''}';
+        text(
+          _dateTime(extract['date']).split(' ').first,
+          48,
+          extractY,
+          size: 7.5,
+        );
+        text('${extract['direction'] ?? ''}', 118, extractY, size: 7.5);
+        text(
+          concept.length > 25 ? '${concept.substring(0, 25)}...' : concept,
+          178,
+          extractY,
+          size: 7.5,
+        );
+        text(
+          company.length > 18 ? '${company.substring(0, 18)}...' : company,
+          330,
+          extractY,
+          size: 7.5,
+        );
+        text(_signedCurrency(extract), 454, extractY, size: 7.5);
+        text(_currency(extract['balance_after']), 520, extractY, size: 7.5);
+        extractY -= 22;
       }
     }
 
@@ -467,14 +621,191 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
       rgb: '0.39 0.45 0.55',
     );
 
+    List<String> tablePages({
+      required String title,
+      required List<String> headers,
+      required List<double> x,
+      required List<List<String>> rows,
+    }) {
+      String trimTo(String value, int max) {
+        if (value.length <= max) return value;
+        if (max <= 3) return value.substring(0, max);
+        return '${value.substring(0, max - 3)}...';
+      }
+
+      final pages = <String>[];
+      final chunks = rows.isEmpty
+          ? <List<List<String>>>[const []]
+          : [
+              for (var i = 0; i < rows.length; i += 24)
+                rows.skip(i).take(24).toList(),
+            ];
+
+      for (var pageIndex = 0; pageIndex < chunks.length; pageIndex++) {
+        final page = StringBuffer();
+
+        void pFill(
+          double left,
+          double top,
+          double width,
+          double height,
+          String rgb,
+        ) {
+          page.writeln('q $rgb rg $left $top $width $height re f Q');
+        }
+
+        void pStroke(
+          double left,
+          double top,
+          double width,
+          double height,
+          String rgb,
+        ) {
+          page.writeln('q $rgb RG 0.8 w $left $top $width $height re S Q');
+        }
+
+        void pText(
+          String value,
+          double left,
+          double top, {
+          double size = 8,
+          String font = 'F1',
+          String rgb = '0.07 0.09 0.15',
+        }) {
+          page.writeln(
+            'BT $rgb rg /$font $size Tf $left $top Td (${_pdfEscape(value)}) Tj ET',
+          );
+        }
+
+        pFill(0, 0, 612, 792, '0.98 0.98 1');
+        pFill(36, 704, 540, 58, '0.31 0.18 0.81');
+        pFill(36, 690, 540, 14, '0.49 0.22 0.86');
+        pText(title, 56, 736, size: 21, font: 'F2', rgb: '1 1 1');
+        pText(
+          'Periodo: ${_apiDate(_startDate)} - ${_apiDate(_endDate)}',
+          56,
+          718,
+          size: 10,
+          rgb: '0.88 0.84 1',
+        );
+
+        pFill(40, 652, 532, 24, '0.95 0.93 1');
+        for (var i = 0; i < headers.length; i++) {
+          pText(
+            headers[i],
+            x[i],
+            661,
+            size: 8,
+            font: 'F2',
+            rgb: '0.31 0.27 0.90',
+          );
+        }
+
+        var y = 626.0;
+        if (chunks[pageIndex].isEmpty) {
+          pText(
+            'Sin datos para mostrar',
+            48,
+            y,
+            size: 10,
+            rgb: '0.39 0.45 0.55',
+          );
+        } else {
+          for (final row in chunks[pageIndex]) {
+            pFill(40, y - 6, 532, 20, '1 1 1');
+            pStroke(40, y - 6, 532, 20, '0.91 0.93 0.96');
+            for (var i = 0; i < row.length; i++) {
+              pText(
+                trimTo(row[i], i == 0 || i == 2 ? 22 : 16),
+                x[i],
+                y,
+                size: 7.5,
+              );
+            }
+            y -= 22;
+          }
+        }
+
+        pFill(36, 34, 540, 24, '0.96 0.95 1');
+        pText(
+          'Appdelanta | Reporte administrativo | Pagina ${pageIndex + 1}',
+          50,
+          43,
+          size: 9,
+          rgb: '0.39 0.45 0.55',
+        );
+        pages.add(page.toString());
+      }
+      return pages;
+    }
+
+    final employeePdfRows = employeesDetail.map<List<String>>((item) {
+      final employee = item as Map;
+      return [
+        '${employee['name'] ?? ''}',
+        '${employee['document'] ?? ''}',
+        '${employee['company'] ?? ''}',
+        _currency(employee['salary']),
+        _currency(employee['advanced']),
+      ];
+    }).toList();
+
+    final extractPdfRows = extracts.map<List<String>>((item) {
+      final extract = item as Map;
+      return [
+        _dateTime(extract['date']).split(' ').first,
+        '${extract['direction'] ?? ''}',
+        '${extract['concept'] ?? ''}',
+        '${extract['company'] ?? ''}',
+        _signedCurrency(extract),
+        _currency(extract['balance_after']),
+      ];
+    }).toList();
+
+    final pageContents = <String>[
+      content.toString(),
+      ...tablePages(
+        title: 'Empleados',
+        headers: const ['Empleado', 'CC', 'Empresa', 'Salario', 'Adelantado'],
+        x: const [48, 184, 256, 394, 486],
+        rows: employeePdfRows,
+      ),
+      ...tablePages(
+        title: 'Extractos',
+        headers: const [
+          'Fecha',
+          'Tipo',
+          'Concepto',
+          'Empresa',
+          'Monto',
+          'Saldo',
+        ],
+        x: const [48, 112, 176, 322, 438, 510],
+        rows: extractPdfRows,
+      ),
+    ];
+
     final objects = <String>[
       '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n',
-      '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n',
-      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj\n',
-      '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n',
-      '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n',
-      '6 0 obj << /Length ${utf8.encode(content.toString()).length} >> stream\n$content\nendstream endobj\n',
+      '',
+      '3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n',
+      '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n',
     ];
+    final pageObjectIds = <int>[];
+    var nextObjectId = 5;
+    for (final pageContent in pageContents) {
+      final pageObjectId = nextObjectId++;
+      final contentObjectId = nextObjectId++;
+      pageObjectIds.add(pageObjectId);
+      objects.add(
+        '$pageObjectId 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents $contentObjectId 0 R >> endobj\n',
+      );
+      objects.add(
+        '$contentObjectId 0 obj << /Length ${utf8.encode(pageContent).length} >> stream\n$pageContent\nendstream endobj\n',
+      );
+    }
+    objects[1] =
+        '2 0 obj << /Type /Pages /Kids [${pageObjectIds.map((id) => '$id 0 R').join(' ')}] /Count ${pageObjectIds.length} >> endobj\n';
 
     final buffer = StringBuffer('%PDF-1.4\n');
     final offsets = <int>[0];
@@ -522,6 +853,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
             final totals = report['totals'] as Map<String, dynamic>? ?? {};
             final employers = report['employers'] as List? ?? const [];
             final breakdown = report['breakdown'] as List? ?? const [];
+            final employeesDetail =
+                report['employees_detail'] as List? ?? const [];
+            final extracts = report['extracts'] as List? ?? const [];
 
             return RefreshIndicator(
               onRefresh: _loadReports,
@@ -570,6 +904,10 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                             _buildProcessed(processed),
                             const SizedBox(height: 20),
                             _buildBreakdown(breakdown),
+                            const SizedBox(height: 20),
+                            _buildEmployeesDetail(employeesDetail),
+                            const SizedBox(height: 20),
+                            _buildExtracts(extracts),
                             const SizedBox(height: 20),
                             _buildTotals(totals),
                           ],
@@ -761,6 +1099,11 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
             _currency(summary['interest']),
             const Color(0xFFDC2626),
           ),
+          _earningsRow(
+            'Suscripciones',
+            _currency(summary['subscriptions']),
+            const Color(0xFF0D9488),
+          ),
         ],
       ),
     );
@@ -866,6 +1209,186 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmployeesDetail(List employees) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.badge_outlined, color: Color(0xFF2563EB), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Empleados',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (employees.isEmpty)
+            const Text(
+              'Sin empleados para mostrar',
+              style: TextStyle(color: Color(0xFF64748B)),
+            )
+          else
+            ...employees.map((item) => _employeeDetailCard(item as Map)),
+        ],
+      ),
+    );
+  }
+
+  Widget _employeeDetailCard(Map item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${item['name'] ?? ''}',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${item['company'] ?? ''} | CC ${item['document'] ?? ''}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _miniStat(
+                  'Salario',
+                  _currency(item['salary']),
+                  const Color(0xFFEFF6FF),
+                  const Color(0xFF2563EB),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _miniStat(
+                  'Adelantado',
+                  _currency(item['advanced']),
+                  const Color(0xFFECFDF5),
+                  const Color(0xFF059669),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExtracts(List extracts) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.receipt_long, color: Color(0xFF0D9488), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Extractos',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (extracts.isEmpty)
+            const Text(
+              'Sin movimientos para el periodo',
+              style: TextStyle(color: Color(0xFF64748B)),
+            )
+          else
+            ...extracts.take(12).map((item) => _extractCard(item as Map)),
+        ],
+      ),
+    );
+  }
+
+  Widget _extractCard(Map item) {
+    final isEntry = item['movement_type'] == 'entry';
+    final isExit = item['movement_type'] == 'exit';
+    final color = isEntry
+        ? const Color(0xFF0D9488)
+        : isExit
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF4F46E5);
+    final bg = isEntry
+        ? const Color(0xFFECFDF5)
+        : isExit
+        ? const Color(0xFFFEF2F2)
+        : const Color(0xFFF5F3FF);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isEntry
+                ? Icons.arrow_downward
+                : isExit
+                ? Icons.arrow_upward
+                : Icons.info_outline,
+            color: color,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${item['concept'] ?? ''}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    _dateTime(item['date']),
+                    if ('${item['company'] ?? ''}'.isNotEmpty)
+                      '${item['company']}',
+                    if ('${item['employee'] ?? ''}'.isNotEmpty)
+                      '${item['employee']}',
+                  ].join(' | '),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _signedCurrency(item),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1098,10 +1621,17 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                       ),
                     ),
                     Text(
-                      '${_toInt(item['employees'])} empleados',
+                      '${item['employer_name'] ?? ''} | CC ${item['employer_document'] ?? ''}',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF64748B),
+                      ),
+                    ),
+                    Text(
+                      '${_toInt(item['employees'])} empleados',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF94A3B8),
                       ),
                     ),
                   ],
@@ -1137,6 +1667,37 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                   _currency(item['earnings']),
                   const Color(0xFFF3E8FF),
                   const Color(0xFF7C3AED),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _miniStat(
+                  'Fees',
+                  _currency(item['fees']),
+                  const Color(0xFFEFF6FF),
+                  const Color(0xFF2563EB),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _miniStat(
+                  'Intereses',
+                  _currency(item['interest']),
+                  const Color(0xFFFFF1F2),
+                  const Color(0xFFE11D48),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _miniStat(
+                  'Suscripciones',
+                  _currency(item['subscriptions']),
+                  const Color(0xFFECFDF5),
+                  const Color(0xFF059669),
                 ),
               ),
             ],

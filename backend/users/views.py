@@ -355,7 +355,7 @@ def verify_company(request, company_id):
     if not request.user.is_admin:
         return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
     
-    from companies.models import Company, PlatformSettings
+    from companies.models import Company, PlatformCapitalMovement, PlatformSettings
     from companies.serializers import CompanyDetailAdminSerializer
     
     try:
@@ -372,6 +372,15 @@ def verify_company(request, company_id):
                 )
                 settings.initial_capital += SUBSCRIPTION_RECEIPT_AMOUNT
                 settings.save(update_fields=['initial_capital', 'updated_at'])
+                PlatformCapitalMovement.record(
+                    movement_type='entry',
+                    concept='Suscripcion de empresa',
+                    amount=SUBSCRIPTION_RECEIPT_AMOUNT,
+                    balance_after=settings.initial_capital,
+                    actor=request.user,
+                    company=company,
+                    metadata={'source': 'admin_verify_company'},
+                )
                 company.subscription_fee_credited_at = timezone.now()
                 company.save(update_fields=['subscription_fee_credited_at', 'updated_at'])
 

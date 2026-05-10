@@ -216,12 +216,26 @@ def platform_settings(request):
 
     settings = PlatformSettings.get_solo()
     data = request.data
+    old_capital = settings.initial_capital
     settings.interest_rate_monthly = Decimal(str(data.get('interest_rate_monthly', settings.interest_rate_monthly)))
     settings.max_salary_percentage = Decimal(str(data.get('max_salary_percentage', settings.max_salary_percentage)))
     settings.initial_capital = Decimal(str(data.get('initial_capital', settings.initial_capital)))
     settings.min_days = int(data.get('min_days', settings.min_days))
     settings.max_days = int(data.get('max_days', settings.max_days))
     settings.save()
+
+    if settings.initial_capital != old_capital:
+        from companies.models import PlatformCapitalMovement
+
+        difference = settings.initial_capital - old_capital
+        PlatformCapitalMovement.record(
+            movement_type='entry' if difference > 0 else 'exit',
+            concept='Ajuste manual de capital',
+            amount=abs(difference),
+            balance_after=settings.initial_capital,
+            actor=request.user,
+            metadata={'source': 'settings_update'},
+        )
 
     fee_ranges = data.get('fee_ranges')
     if isinstance(fee_ranges, list) and fee_ranges:
@@ -266,14 +280,76 @@ def platform_settings(request):
     return Response(_serialize_platform_settings())
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def platform_capital_movement(request):
+    from decimal import Decimal, InvalidOperation
+    from django.db import transaction
+    from companies.models import PlatformCapitalMovement, PlatformSettings
+
+    if not request.user.is_admin:
+        return Response({'error': 'No autorizado'}, status=403)
+
+    action = (request.data.get('action') or '').strip().lower()
+    if action not in ('deposit', 'withdraw', 'entry', 'exit'):
+        return Response({'error': 'Accion invalida'}, status=400)
+
+    try:
+        amount = Decimal(str(request.data.get('amount', '0')))
+    except (InvalidOperation, TypeError, ValueError):
+        return Response({'error': 'El monto no es valido'}, status=400)
+
+    if amount <= 0:
+        return Response({'error': 'El monto debe ser mayor que cero'}, status=400)
+
+    is_entry = action in ('deposit', 'entry')
+    concept = request.data.get('concept') or (
+        'Ingreso manual de fondos' if is_entry else 'Retiro manual de fondos'
+    )
+
+    with transaction.atomic():
+        settings = PlatformSettings.objects.select_for_update().get(
+            pk=PlatformSettings.get_solo().pk
+        )
+        if not is_entry and settings.initial_capital < amount:
+            return Response({'error': 'Capital insuficiente para retirar fondos'}, status=400)
+
+        if is_entry:
+            settings.initial_capital += amount
+        else:
+            settings.initial_capital -= amount
+        settings.save(update_fields=['initial_capital', 'updated_at'])
+
+        movement = PlatformCapitalMovement.record(
+            movement_type='entry' if is_entry else 'exit',
+            concept=concept,
+            amount=amount,
+            balance_after=settings.initial_capital,
+            actor=request.user,
+            metadata={'source': 'manual_capital_movement'},
+        )
+
+    data = _serialize_platform_settings()
+    data['movement'] = {
+        'id': movement.id,
+        'movement_type': movement.movement_type,
+        'concept': movement.concept,
+        'amount': _decimal_str(movement.amount),
+        'balance_after': _decimal_str(movement.balance_after),
+        'created_at': movement.created_at,
+    }
+    return Response(data)
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def reports(request):
     from datetime import timedelta
-    from django.db.models import Count, Sum
+    from decimal import Decimal
+    from django.db.models import Sum
     from django.utils import timezone
-    from users.models import User
-    from companies.models import Company
+    from users.models import EmployeeProfile, User
+    from companies.models import Company, PlatformCapitalMovement
     from advances.models import Advance
 
     if not request.user.is_admin:
@@ -298,6 +374,22 @@ def reports(request):
     approved = advances.filter(status__in=['approved', 'disbursed', 'recovered'])
     interest_expr = _interest_expression()
     recovered_profit_expr = _recovered_profit_expression()
+    subscription_amount = Decimal('50000')
+    movements = PlatformCapitalMovement.objects.select_related(
+        'actor', 'company', 'advance__employee__user',
+    ).filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    )
+    if employer_id:
+        movements = movements.filter(company_id=employer_id)
+    subscription_movements = movements.filter(
+        movement_type='entry',
+        concept='Suscripcion de empresa',
+    )
+    subscription_companies = Company.objects.filter(is_verified=True)
+    if employer_id:
+        subscription_companies = subscription_companies.filter(id=employer_id)
 
     total_disbursed = completed.aggregate(total=Sum('amount'))['total'] or 0
     total_recovered = recovered.annotate(
@@ -307,6 +399,9 @@ def reports(request):
     total_interest = completed.annotate(calculated_interest=interest_expr).aggregate(
         total=Sum('calculated_interest')
     )['total'] or 0
+    total_subscriptions = subscription_movements.aggregate(total=Sum('amount'))['total']
+    if total_subscriptions is None:
+        total_subscriptions = subscription_amount * subscription_companies.count()
 
     employers = Company.objects.all().order_by('name')
     breakdown = []
@@ -318,9 +413,20 @@ def reports(request):
         company_interest = company_completed.annotate(calculated_interest=interest_expr).aggregate(
             total=Sum('calculated_interest')
         )['total'] or 0
+        company_subscriptions = subscription_movements.filter(company=company).aggregate(
+            total=Sum('amount')
+        )['total']
+        if company_subscriptions is None:
+            company_subscriptions = (
+                subscription_amount
+                if subscription_companies.filter(id=company.id).exists()
+                else Decimal('0')
+            )
         breakdown.append({
             'id': company.id,
             'name': company.name,
+            'employer_name': company.admin.get_full_name() or company.admin.email,
+            'employer_document': company.admin.document_number,
             'employees': company.employee_count,
             'requests': company_advances.count(),
             'disbursed': _decimal_str(company_completed.aggregate(total=Sum('amount'))['total']),
@@ -329,8 +435,107 @@ def reports(request):
                     recovered_profit=recovered_profit_expr
                 ).aggregate(total=Sum('recovered_profit'))['total']
             ),
-            'earnings': _decimal_str(company_fees + company_interest),
+            'earnings': _decimal_str(company_fees + company_interest + company_subscriptions),
+            'fees': _decimal_str(company_fees),
+            'interest': _decimal_str(company_interest),
+            'subscriptions': _decimal_str(company_subscriptions),
         })
+
+    employee_profiles = EmployeeProfile.objects.select_related('user', 'company').filter(
+        company__isnull=False,
+    ).order_by('company__name', 'user__first_name', 'user__last_name', 'user__email')
+    if employer_id:
+        employee_profiles = employee_profiles.filter(company_id=employer_id)
+
+    employee_details = []
+    for profile in employee_profiles:
+        employee_advances = advances.filter(
+            employee=profile,
+            status__in=['disbursed', 'recovered'],
+        )
+        employee_details.append({
+            'id': profile.id,
+            'name': profile.user.get_full_name() or profile.user.email,
+            'document': profile.user.document_number,
+            'company': profile.company.name if profile.company_id else '',
+            'salary': _decimal_str(profile.salary),
+            'advanced': _decimal_str(employee_advances.aggregate(total=Sum('amount'))['total']),
+        })
+
+    extracts = []
+    for movement in movements:
+        employee_name = ''
+        if movement.advance_id and movement.advance.employee_id:
+            employee_name = movement.advance.employee.user.get_full_name() or movement.advance.employee.user.email
+        actor_name = ''
+        if movement.actor_id:
+            actor_name = movement.actor.get_full_name() or movement.actor.email
+        extracts.append({
+            'sort_at': movement.created_at,
+            'date': movement.created_at,
+            'type': 'Movimiento de capital',
+            'movement_type': movement.movement_type,
+            'direction': 'Entrada' if movement.movement_type == 'entry' else 'Salida',
+            'concept': movement.concept,
+            'company': movement.company.name if movement.company_id else '',
+            'employee': employee_name,
+            'actor': actor_name,
+            'amount': _decimal_str(movement.amount),
+            'balance_after': _decimal_str(movement.balance_after),
+            'fee': _decimal_str(movement.metadata.get('fee', 0)),
+            'interest': _decimal_str(movement.metadata.get('interest', 0)),
+        })
+
+    registered_companies = Company.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    )
+    if employer_id:
+        registered_companies = registered_companies.filter(id=employer_id)
+    for company in registered_companies:
+        extracts.append({
+            'sort_at': company.created_at,
+            'date': company.created_at,
+            'type': 'Empresa registrada',
+            'movement_type': 'info',
+            'direction': 'Registro',
+            'concept': 'Empresa registrada',
+            'company': company.name,
+            'employee': '',
+            'actor': company.admin.get_full_name() or company.admin.email,
+            'amount': '0',
+            'balance_after': '',
+            'fee': '0',
+            'interest': '0',
+        })
+
+    employees = EmployeeProfile.objects.select_related('user', 'company').filter(
+        user__created_at__date__gte=start_date,
+        user__created_at__date__lte=end_date,
+        company__isnull=False,
+    )
+    if employer_id:
+        employees = employees.filter(company_id=employer_id)
+    for profile in employees:
+        extracts.append({
+            'sort_at': profile.user.created_at,
+            'date': profile.user.created_at,
+            'type': 'Empleado registrado',
+            'movement_type': 'info',
+            'direction': 'Registro',
+            'concept': 'Empleado registrado',
+            'company': profile.company.name if profile.company_id else '',
+            'employee': profile.user.get_full_name() or profile.user.email,
+            'actor': '',
+            'amount': '0',
+            'balance_after': '',
+            'fee': '0',
+            'interest': '0',
+        })
+
+    extracts.sort(key=lambda item: item['sort_at'], reverse=True)
+    for item in extracts:
+        item.pop('sort_at', None)
 
     return Response({
         'filters': {
@@ -342,9 +547,10 @@ def reports(request):
         'summary': {
             'disbursed': _decimal_str(total_disbursed),
             'recovered': _decimal_str(total_recovered),
-            'earnings': _decimal_str(total_fees + total_interest),
+            'earnings': _decimal_str(total_fees + total_interest + total_subscriptions),
             'fees': _decimal_str(total_fees),
             'interest': _decimal_str(total_interest),
+            'subscriptions': _decimal_str(total_subscriptions),
         },
         'processed': {
             'total': approved.count() + rejected.count(),
@@ -352,6 +558,8 @@ def reports(request):
             'rejected': rejected.count(),
         },
         'breakdown': breakdown,
+        'employees_detail': employee_details,
+        'extracts': extracts,
         'totals': {
             'active_employers': Company.objects.filter(is_active=True).count(),
             'employees': User.objects.filter(role='employee').count(),
@@ -361,6 +569,7 @@ def reports(request):
 urlpatterns = [
     path('dashboard/', dashboard, name='dashboard'),
     path('reports/', reports, name='reports'),
+    path('settings/capital-movement/', platform_capital_movement, name='platform-capital-movement'),
     path('settings/', platform_settings, name='platform-settings'),
     path('user-management/', user_management, name='user-management'),
     path('verify-company/<int:company_id>/', verify_company, name='verify-company'),

@@ -88,4 +88,18 @@ class AdminService {
     );
     return response as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> moveCapital({
+    required String action,
+    required String amount,
+  }) async {
+    final response = await _apiService.post(
+      ApiConstants.adminCapitalMovement,
+      data: {
+        'action': action,
+        'amount': amount,
+      },
+    );
+    return response as Map<String, dynamic>;
+  }
 }

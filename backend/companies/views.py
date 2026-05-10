@@ -9,7 +9,13 @@ from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 
-from .models import Company, CompanySettings, EmployeeContract, PlatformSettings
+from .models import (
+    Company,
+    CompanySettings,
+    EmployeeContract,
+    PlatformCapitalMovement,
+    PlatformSettings,
+)
 from .serializers import (
     CompanySerializer,
     CompanyListSerializer,
@@ -193,6 +199,15 @@ class CompanyViewSet(viewsets.ModelViewSet):
                 )
                 settings.initial_capital += SUBSCRIPTION_RECEIPT_AMOUNT
                 settings.save(update_fields=['initial_capital', 'updated_at'])
+                PlatformCapitalMovement.record(
+                    movement_type='entry',
+                    concept='Suscripcion de empresa',
+                    amount=SUBSCRIPTION_RECEIPT_AMOUNT,
+                    balance_after=settings.initial_capital,
+                    actor=request.user,
+                    company=company,
+                    metadata={'source': 'company_verification'},
+                )
                 company.subscription_fee_credited_at = timezone.now()
                 company.save(update_fields=['subscription_fee_credited_at', 'updated_at'])
                 _notify_company_verified(company)

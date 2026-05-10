@@ -61,6 +61,8 @@ class ApiConstants {
   static const String adminDashboard = '$apiPrefix/admin/dashboard/';
   static const String adminReports = '$apiPrefix/admin/reports/';
   static const String adminSettings = '$apiPrefix/admin/settings/';
+  static const String adminCapitalMovement =
+      '$apiPrefix/admin/settings/capital-movement/';
 
   // Headers
   static Map<String, String> get headers => {
