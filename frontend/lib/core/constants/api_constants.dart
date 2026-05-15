@@ -1,19 +1,20 @@
 class ApiConstants {
-  // URL base del backend Django
-  // Para desarrollo local con emulador Android usar 10.0.2.2
-  // Para iOS simulator usar localhost
-  // Para web usar localhost
-  // Para dispositivo físico, usar la IP de la máquina
-
-  static const String baseUrl = String.fromEnvironment(
+  // URL base del backend.
+  // Puedes sobreescribirlo con:
+  // flutter run --dart-define=API_BASE_URL=https://tu-dominio
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // Servidor VPS production
-    // Para desarrollo local con emulador Android usar 10.0.2.2
-    // Para iOS simulator usar localhost
-    // Para web usar localhost
-    // Para dispositivo físico, usar la IP de la máquina
-    defaultValue: 'http://2.24.78.224:8000',
+    defaultValue: '',
   );
+
+  static String get baseUrl {
+    if (_configuredBaseUrl.trim().isNotEmpty) {
+      return _configuredBaseUrl;
+    }
+
+    // Default to deployed backend when no --dart-define override is provided.
+    return 'https://appdelanta-backend.online';
+  }
 
   // Endpoints API
   static const String apiPrefix = '/api';
