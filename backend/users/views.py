@@ -30,7 +30,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_admin:
-            return User.objects.all()
+            return User.objects.filter(is_superuser=False)
         elif user.is_employer:
             try:
                 company = user.company
@@ -327,7 +327,7 @@ def user_management(request):
         return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
     
     # Obtener todos los usuarios con sus perfiles
-    users = User.objects.all().select_related(
+    users = User.objects.filter(is_superuser=False).select_related(
         'employee_profile', 'admin_profile', 'company'
     )
     
