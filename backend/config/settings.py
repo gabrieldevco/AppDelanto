@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-8oi%ybylzsmlpyd7vo5#+&yl0ief=43k0wei%)s%i=#8l2@4jc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '0.0.0.0', '10.0.2.2']
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', '0.0.0.0', '10.0.2.2', 'appdelanta-backend.online']
 
 
 # Application definition
@@ -81,7 +81,15 @@ CORS_ALLOW_METHODS = [
     'POST',
     'PUT',
 ]
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000', 'http://0.0.0.0:8000']
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://0.0.0.0:8000',
+    'https://2.24.78.224',
+    'https://appdelanta-backend.online',
+]
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 # Django REST Framework
 REST_FRAMEWORK = {
