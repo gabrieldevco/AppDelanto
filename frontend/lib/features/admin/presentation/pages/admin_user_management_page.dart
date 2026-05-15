@@ -284,35 +284,21 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage>
     return message.trim().isEmpty ? 'Intenta nuevamente.' : message;
   }
 
-  void _showDeleteConfirmation(
+  Future<void> _showDeleteConfirmation(
     String title,
     String message,
     VoidCallback onConfirm,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onConfirm();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-            ),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+  ) async {
+    final confirmed = await AppPopup.confirm(
+      context,
+      title: title,
+      message: message,
+      type: AppPopupType.error,
+      primaryLabel: 'Eliminar',
+      secondaryLabel: 'Cancelar',
     );
+    if (!mounted || !confirmed) return;
+    onConfirm();
   }
 
   @override
